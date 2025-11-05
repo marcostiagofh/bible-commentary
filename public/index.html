@@ -110,7 +110,7 @@ function selectChapter(book, chapter){
   const files = Object.keys(bibleData[book][chapter]);
   files.forEach(f=>{
     const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, f);
-    r.onclick = ()=> loadFile(pathJoin(book, chapter, f), f);
+    r.onclick = ()=> loadFile(book, chapter, f);
     filesDiv.appendChild(r);
   });
   document.getElementById('content').textContent='';
