@@ -11,45 +11,48 @@
   .chapter-item:hover { background: rgba(255,255,255,0.03); }
   .file-item:hover { background: rgba(255,255,255,0.03); }
   pre { white-space: pre-wrap; }
+  /* Estilo para a frase destacada durante a leitura */
+  .highlight-speech {
+    background-color: rgba(96, 165, 250, 0.5); /* Azul claro semi-transparente */
+    transition: background-color 0.2s ease-in-out;
+  }
 </style>
-</head>
-<body class="bg-gray-900 text-gray-100">
-  <div class="min-h-screen flex">
-    <aside class="w-64 bg-gray-800 p-4 overflow-auto">
-      <h1 class="text-xl font-bold mb-4">Comentário — livros</h1>
+<body class="bg-gray-900 text-gray-100 font-sans p-4">
+  <div class="flex flex-col md:flex-row md:h-screen md:max-h-screen gap-4">
+    <!-- Coluna de Livros -->
+    <div class="flex-shrink-0 md:flex-none md:w-64 bg-gray-800 p-4 rounded-lg flex flex-col">
+      <h2 class="text-xl font-bold mb-4">Livros</h2>
       <input id="filterBook" placeholder="filtrar livros..." class="w-full p-2 mb-3 text-gray-900 rounded" />
-      <div id="books" class="space-y-1"></div>
-    </aside>
-    <div class="flex-1 p-4 flex flex-col">
-      <div class="flex">
-        <div class="w-64 bg-gray-800 p-3 mr-4 rounded">
-          <h2 class="font-semibold mb-2">Capítulos</h2>
-          <div id="chapters" class="space-y-1 max-h-96 overflow-auto"></div>
-        </div>
-        <div class="w-64 bg-gray-800 p-3 mr-4 rounded">
-          <h2 class="font-semibold mb-2">Trechos / Arquivos</h2>
-          <div id="files" class="space-y-1 max-h-96 overflow-auto"></div>
-        </div>
-        <main class="flex-1 bg-gray-800 p-4 rounded">
-          <div class="flex justify-between items-start mb-2">
-            <div>
-              <h2 id="readerTitle" class="text-2xl font-bold">Selecione um trecho</h2>
-              <p id="readerSub" class="text-sm text-gray-300 mt-1"></p>
-            </div>
-            <div class="space-x-2">
-              <div class="mt-4 flex gap-2">
-                <button id="btnSpeak">🔊 Ler</button>
-                <button id="btnStop">⏹️ Parar</button>
-                <select id="voiceSelect"></select>
-              </div>
-            </div>
-          </div>
-          <div class="prose max-w-none text-gray-100">
-            <pre id="content" class="text-sm leading-6"></pre>
-          </div>
-        </main>
-      </div>
+      <div id="books" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
+    <!-- Coluna de Capítulos -->
+    <div class="flex-shrink-0 md:flex-none md:w-64 bg-gray-800 p-4 rounded-lg flex flex-col">
+      <h2 class="text-xl font-bold mb-4">Capítulos</h2>
+      <div id="chapters" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
+    </div>
+    <!-- Coluna de Trechos -->
+    <div class="flex-shrink-0 md:flex-none md:w-64 bg-gray-800 p-4 rounded-lg flex flex-col">
+      <h2 class="text-xl font-bold mb-4">Trechos / Arquivos</h2>
+      <div id="files" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
+    </div>
+
+    <!-- Área de Leitura (ocupa o resto do espaço) -->
+    <main class="flex-1 bg-gray-800 p-4 rounded-lg flex flex-col overflow-hidden">
+      <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
+        <div>
+          <h2 id="readerTitle" class="text-2xl font-bold">Selecione um trecho</h2>
+          <p id="readerSub" class="text-sm text-gray-300 mt-1"></p>
+        </div>
+        <div class="flex flex-wrap gap-2 items-center">
+          <button id="btnSpeak" class="px-3 py-1 bg-blue-600 rounded">🔊 Ler</button>
+          <button id="btnStop" class="px-3 py-1 bg-red-600 rounded">⏹️ Parar</button>
+          <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
+        </div>
+      </div>
+      <div class="prose max-w-none text-gray-100 flex-1 overflow-y-auto">
+        <pre id="content" class="text-sm leading-6"></pre>
+      </div>
+    </main>
   </div>
 
 <script>
@@ -151,27 +154,53 @@ const synth = window.speechSynthesis;
   }
 
   // Função para falar o texto
-  function speakText(text) {
+  function speakText() {
+    const contentEl = document.getElementById('content');
+    const originalText = contentEl.innerText;
+
+    if (originalText.trim() === '') return;
+
     synth.cancel(); // parar o que estiver tocando
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(originalText);
 
     // Escolher a voz selecionada
     const selectedIndex = document.getElementById('voiceSelect').value;
     utterance.voice = voices[selectedIndex];
 
     // Configurações de naturalidade
-    utterance.rate = 0.95; // velocidade
+    utterance.rate = 0.9; // velocidade
     utterance.pitch = 1.0; // tom
     utterance.volume = 1.0; // volume máximo
+
+    // Evento para destacar a frase atual
+    utterance.onboundary = (event) => {
+      if (event.name === 'word') {
+        const start = event.charIndex;
+        const end = start + event.charLength;
+
+        // Recria o HTML com a parte destacada
+        const before = originalText.substring(0, start);
+        const highlighted = originalText.substring(start, end);
+        const after = originalText.substring(end);
+
+        contentEl.innerHTML = `${escapeHtml(before)}<span class="highlight-speech">${escapeHtml(highlighted)}</span>${escapeHtml(after)}`;
+      }
+    };
+
+    // Evento para limpar o destaque no final
+    utterance.onend = () => {
+      contentEl.innerHTML = escapeHtml(originalText);
+    };
 
     synth.speak(utterance);
   }
 
+  function escapeHtml(unsafe) {
+    return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&#039;");
+  }
+
   // Eventos dos botões
-  document.getElementById('btnSpeak').addEventListener('click', () => {
-    const text = document.getElementById('content').innerText;
-    if (text.trim() !== '') speakText(text);
-  });
+  document.getElementById('btnSpeak').addEventListener('click', speakText);
 
 document.getElementById('btnStop').addEventListener('click', () => synth.cancel());
 
