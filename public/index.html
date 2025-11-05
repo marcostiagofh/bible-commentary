@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Comentário Bíblico — Navegador Local</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
+  /* small custom tweaks */
+  .book-item:hover { background: rgba(255,255,255,0.03); }
+  .chapter-item:hover { background: rgba(255,255,255,0.03); }
+  .file-item:hover { background: rgba(255,255,255,0.03); }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+  <div class="min-h-screen flex">
+    <aside class="w-64 bg-gray-800 p-4 overflow-auto">
+      <h1 class="text-xl font-bold mb-4">Comentário — livros</h1>
+      <input id="filterBook" placeholder="filtrar livros..." class="w-full p-2 mb-3 text-gray-900 rounded" />
+      <div id="books" class="space-y-1"></div>
+    </aside>
+    <div class="flex-1 p-4 flex flex-col">
+      <div class="flex">
+        <div class="w-64 bg-gray-800 p-3 mr-4 rounded">
+          <h2 class="font-semibold mb-2">Capítulos</h2>
+          <div id="chapters" class="space-y-1 max-h-96 overflow-auto"></div>
+        </div>
+        <div class="w-64 bg-gray-800 p-3 mr-4 rounded">
+          <h2 class="font-semibold mb-2">Trechos / Arquivos</h2>
+          <div id="files" class="space-y-1 max-h-96 overflow-auto"></div>
+        </div>
+        <main class="flex-1 bg-gray-800 p-4 rounded">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <h2 id="readerTitle" class="text-2xl font-bold">Selecione um trecho</h2>
+              <p id="readerSub" class="text-sm text-gray-300 mt-1"></p>
+            </div>
+            <div class="space-x-2">
+              <div class="mt-4 flex gap-2">
+                <button id="btnSpeak">🔊 Ler</button>
+                <button id="btnStop">⏹️ Parar</button>
+                <select id="voiceSelect"></select>
+              </div>
+            </div>
+          </div>
+          <div class="prose max-w-none text-gray-100">
+            <pre id="content" class="text-sm leading-6"></pre>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+<script>
+// Global data store
+let bibleData = {};
+let currentBook = null;
+let currentChapter = null;
+let currentFilePath = null;
+
+function el(tag, attrs={}, txt=''){
+  const e = document.createElement(tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  if (txt) e.textContent = txt;
+  return e;
+}
+
+function loadBooks(){
+  const booksDiv = document.getElementById('books');
+  booksDiv.innerHTML='';
+  const filter = document.getElementById('filterBook');
+  const books = Object.keys(bibleData);
+  function render(){
+    booksDiv.innerHTML='';
+    const q = filter.value.toLowerCase();
+    books.filter(b=>b.toLowerCase().includes(q)).forEach(b=>{
+      const row = el('div',{class:'p-2 rounded cursor-pointer book-item'}, b);
+      row.onclick = ()=> selectBook(b);
+      booksDiv.appendChild(row);
+    });
+  }
+  filter.oninput = render;
+  render();
+}
+
+function selectBook(book){
+  currentBook = book;
+  document.getElementById('readerTitle').textContent = book;
+  document.getElementById('readerSub').textContent = '';
+  // load chapters
+  const chDiv = document.getElementById('chapters');
+  chDiv.innerHTML='';
+  const chapters = Object.keys(bibleData[book]);
+  chapters.forEach(ch=>{
+    const r = el('div',{class:'p-2 rounded cursor-pointer chapter-item'}, ch);
+    r.onclick = ()=> selectChapter(book, ch);
+    chDiv.appendChild(r);
+  });
+  // clear files and content
+  document.getElementById('files').innerHTML='';
+  document.getElementById('content').textContent='';
+}
+
+function selectChapter(book, chapter){
+  currentChapter = chapter;
+  document.getElementById('readerSub').textContent = `${book} — ${chapter}`;
+  const filesDiv = document.getElementById('files');
+  filesDiv.innerHTML='';
+  const files = Object.keys(bibleData[book][chapter]);
+  files.forEach(f=>{
+    const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, f);
+    r.onclick = ()=> loadFile(pathJoin(book, chapter, f), f);
+    filesDiv.appendChild(r);
+  });
+  document.getElementById('content').textContent='';
+}
+
+function loadFile(book, chapter, filename){
+  currentBook = book;
+  currentChapter = chapter;
+  currentFilePath = filename;
+  document.getElementById('content').textContent = bibleData[book][chapter][filename];
+  document.getElementById('readerTitle').textContent = filename.replace(/\.txt$/i, '');
+}
+
+const synth = window.speechSynthesis;
+  let voices = [];
+
+  // Função que popula o seletor de vozes
+  function populateVoiceList() {
+    voices = synth.getVoices();
+    const voiceSelect = document.getElementById('voiceSelect');
+    voiceSelect.innerHTML = ''; // limpar
+
+    voices.forEach((voice, i) => {
+      const option = document.createElement('option');
+      option.textContent = `${voice.name} (${voice.lang})`;
+      option.value = i;
+      voiceSelect.appendChild(option);
+    });
+
+    // Seleciona automaticamente uma voz em português
+    const preferred = voices.findIndex(v => /pt|brazil/i.test(v.lang));
+    if (preferred >= 0) voiceSelect.selectedIndex = preferred;
+  }
+
+  populateVoiceList();
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = populateVoiceList;
+  }
+
+  // Função para falar o texto
+  function speakText(text) {
+    synth.cancel(); // parar o que estiver tocando
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Escolher a voz selecionada
+    const selectedIndex = document.getElementById('voiceSelect').value;
+    utterance.voice = voices[selectedIndex];
+
+    // Configurações de naturalidade
+    utterance.rate = 0.95; // velocidade
+    utterance.pitch = 1.0; // tom
+    utterance.volume = 1.0; // volume máximo
+
+    synth.speak(utterance);
+  }
+
+  // Eventos dos botões
+  document.getElementById('btnSpeak').addEventListener('click', () => {
+    const text = document.getElementById('content').innerText;
+    if (text.trim() !== '') speakText(text);
+  });
+
+document.getElementById('btnStop').addEventListener('click', () => synth.cancel());
+
+async function main() {
+  try {
+    const response = await fetch('./data.json');
+    if (!response.ok) throw new Error(`Failed to load data.json: ${response.statusText}`);
+    bibleData = await response.json();
+    loadBooks();
+  } catch (e) {
+    console.error(e);
+    alert('Erro fatal: Não foi possível carregar os dados do comentário. Execute o script de build (node build.js) e verifique se o arquivo data.json existe na pasta public.');
+  }
+}
+
+main();
+</script>
+</body>
+</html>
