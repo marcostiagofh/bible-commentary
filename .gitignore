@@ -1,4 +1,6 @@
 *.js
-comentario_extraido_original/
+comentario_extraido/
 comentario_extraido_resumo/
 node_modules/
+backup/
+public/data_comentario.json
