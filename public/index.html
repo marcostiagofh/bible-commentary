@@ -59,7 +59,7 @@
           <p id="readerSub" class="text-sm text-gray-300 mt-1"></p>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
-          <button id="btnSpeak" class="px-3 py-1 bg-blue-600 rounded">🔊 Ler</button>
+          <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center">▶️ Ler</button>
           <button id="btnStop" class="px-3 py-1 bg-red-600 rounded">⏹️ Parar</button>
           <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
         </div>
@@ -76,6 +76,7 @@ let bibleData = {};
 let currentBook = null;
 let currentChapter = null;
 let currentFilePath = null;
+let isAutoplayEnabled = true; // Controle para a reprodução contínua
 
 function el(tag, attrs={}, txt=''){
   const e = document.createElement(tag);
@@ -142,25 +143,106 @@ function loadFile(book, chapter, filename){
   document.getElementById('readerTitle').textContent = filename.replace(/\.txt$/i, '');
 }
 
+function findNextItem() {
+  if (!currentBook || !currentChapter || !currentFilePath) return null;
+
+  const booksList = Object.keys(bibleData);
+  const chaptersList = Object.keys(bibleData[currentBook]);
+  const filesList = Object.keys(bibleData[currentBook][currentChapter]);
+
+  const currentFileIndex = filesList.indexOf(currentFilePath);
+
+  // 1. Tenta encontrar o próximo arquivo no mesmo capítulo
+  if (currentFileIndex < filesList.length - 1) {
+    const nextFile = filesList[currentFileIndex + 1];
+    return { book: currentBook, chapter: currentChapter, file: nextFile };
+  }
+
+  // 2. Se não houver, tenta encontrar o próximo capítulo no mesmo livro
+  const currentChapterIndex = chaptersList.indexOf(currentChapter);
+  if (currentChapterIndex < chaptersList.length - 1) {
+    const nextChapter = chaptersList[currentChapterIndex + 1];
+    const nextChapterFiles = Object.keys(bibleData[currentBook][nextChapter]);
+    if (nextChapterFiles.length > 0) {
+      return { book: currentBook, chapter: nextChapter, file: nextChapterFiles[0] };
+    }
+  }
+
+  // 3. Se não houver, tenta encontrar o próximo livro
+  const currentBookIndex = booksList.indexOf(currentBook);
+  if (currentBookIndex < booksList.length - 1) {
+    const nextBook = booksList[currentBookIndex + 1];
+    const nextBookChapters = Object.keys(bibleData[nextBook]);
+    if (nextBookChapters.length > 0) {
+      const nextChapter = nextBookChapters[0];
+      const nextChapterFiles = Object.keys(bibleData[nextBook][nextChapter]);
+      if (nextChapterFiles.length > 0) {
+        return { book: nextBook, chapter: nextChapter, file: nextChapterFiles[0] };
+      }
+    }
+  }
+
+  // 4. Chegou ao fim de tudo
+  return null;
+}
+
+function playNext() {
+    const nextItem = findNextItem();
+    if (nextItem) {
+        selectBook(nextItem.book);
+        selectChapter(nextItem.book, nextItem.chapter);
+        loadFile(nextItem.book, nextItem.chapter, nextItem.file);
+        handlePlayPause(); // Inicia a leitura do novo trecho
+    }
+}
 const synth = window.speechSynthesis;
   let voices = [];
+  // Variáveis para controlar o estado da fala
+  let currentUtterance = null;
+  let originalTextForSpeech = '';
 
   // Função que popula o seletor de vozes
   function populateVoiceList() {
-    voices = synth.getVoices();
+    const allVoices = synth.getVoices();
+    const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().startsWith('pt-'));
+
     const voiceSelect = document.getElementById('voiceSelect');
+
+    // Armazena o URI da voz atualmente selecionada antes de limpar o dropdown
+    let previouslySelectedVoiceURI = null;
+    if (voiceSelect.value !== '' && voices.length > 0) { // 'voices' aqui se refere à lista global *antiga*
+        const currentVoiceOptionIndex = parseInt(voiceSelect.value, 10);
+        if (currentVoiceOptionIndex >= 0 && currentVoiceOptionIndex < voices.length) {
+            previouslySelectedVoiceURI = voices[currentVoiceOptionIndex].voiceURI;
+        }
+    }
+
+    // Atualiza a variável global 'voices' com a nova lista filtrada
+    voices = newVoices;
+
     voiceSelect.innerHTML = ''; // limpar
 
+    // Itera sobre a lista já filtrada de vozes em português
     voices.forEach((voice, i) => {
       const option = document.createElement('option');
       option.textContent = `${voice.name} (${voice.lang})`;
-      option.value = i;
+      option.value = i; // O valor da opção é o índice na lista 'voices'
       voiceSelect.appendChild(option);
     });
 
-    // Seleciona automaticamente uma voz em português
-    const preferred = voices.findIndex(v => /pt|brazil/i.test(v.lang));
-    if (preferred >= 0) voiceSelect.selectedIndex = preferred;
+    // Tenta re-selecionar a voz que estava ativa
+    if (previouslySelectedVoiceURI) {
+      const newIndex = voices.findIndex(v => v.voiceURI === previouslySelectedVoiceURI);
+      if (newIndex !== -1) {
+        voiceSelect.selectedIndex = newIndex;
+      } else {
+        // Se a voz anterior não estiver mais disponível, seleciona a primeira
+        voiceSelect.selectedIndex = 0;
+      }
+    } else {
+      // Se nada estava selecionado (primeira carga), seleciona a primeira
+      voiceSelect.selectedIndex = 0;
+    }
   }
 
   populateVoiceList();
@@ -168,56 +250,81 @@ const synth = window.speechSynthesis;
     speechSynthesis.onvoiceschanged = populateVoiceList;
   }
 
-  // Função para falar o texto
-  function speakText() {
+  // Função para destacar a palavra/frase durante a fala
+  function highlightText(event) {
     const contentEl = document.getElementById('content');
-    const originalText = contentEl.innerText;
-
-    if (originalText.trim() === '') return;
-
-    synth.cancel(); // parar o que estiver tocando
-    const utterance = new SpeechSynthesisUtterance(originalText);
-
-    // Escolher a voz selecionada
-    const selectedIndex = document.getElementById('voiceSelect').value;
-    utterance.voice = voices[selectedIndex];
-
-    // Configurações de naturalidade
-    utterance.rate = 0.9; // velocidade
-    utterance.pitch = 1.0; // tom
-    utterance.volume = 1.0; // volume máximo
-
-    // Evento para destacar a frase atual
-    utterance.onboundary = (event) => {
-      if (event.name === 'word') {
+    
+    if (event.name === 'word') {
         const start = event.charIndex;
         const end = start + event.charLength;
 
         // Recria o HTML com a parte destacada
-        const before = originalText.substring(0, start);
-        const highlighted = originalText.substring(start, end);
-        const after = originalText.substring(end);
+        const before = originalTextForSpeech.substring(0, start);
+        const highlighted = originalTextForSpeech.substring(start, end);
+        const after = originalTextForSpeech.substring(end);
 
         contentEl.innerHTML = `${escapeHtml(before)}<span class="highlight-speech">${escapeHtml(highlighted)}</span>${escapeHtml(after)}`;
       }
     };
 
-    // Evento para limpar o destaque no final
-    utterance.onend = () => {
-      contentEl.innerHTML = escapeHtml(originalText);
-    };
+  // Função principal que gerencia Play/Pause/Resume
+  function handlePlayPause() {
+    const btn = document.getElementById('btnPlayPause');
+    const contentEl = document.getElementById('content');
 
-    synth.speak(utterance);
+    if (synth.paused && currentUtterance) {
+      // Se estiver pausado, retoma
+      synth.resume();
+      btn.textContent = '⏸️ Pausar';
+    } else if (synth.speaking) {
+      // Se estiver falando, pausa
+      synth.pause();
+      btn.textContent = '▶️ Retomar';
+    } else {
+      // Se não estiver falando, começa do início
+      originalTextForSpeech = contentEl.innerText;
+      if (originalTextForSpeech.trim() === '') return;
+
+      synth.cancel(); // Garante que qualquer fala anterior seja interrompida
+
+      currentUtterance = new SpeechSynthesisUtterance(originalTextForSpeech);
+
+      // Configurações da voz e da fala
+      const selectedIndex = document.getElementById('voiceSelect').value;
+      currentUtterance.voice = voices[selectedIndex];
+      currentUtterance.rate = 0.9;
+      currentUtterance.pitch = 1.0;
+      currentUtterance.volume = 1.0;
+
+      // Adiciona os eventos para o novo utterance
+      currentUtterance.onboundary = highlightText;
+      currentUtterance.onend = () => {
+        contentEl.innerHTML = escapeHtml(originalTextForSpeech);
+        btn.textContent = '▶️ Ler';
+        currentUtterance = null;
+        // Se o autoplay estiver ativo, toca o próximo
+        if (isAutoplayEnabled) {
+            playNext();
+        }
+      };
+
+      synth.speak(currentUtterance);
+      btn.textContent = '⏸️ Pausar';
+    }
   }
 
   function escapeHtml(unsafe) {
     return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&#039;");
   }
 
-  // Eventos dos botões
-  document.getElementById('btnSpeak').addEventListener('click', speakText);
+  function handleStop() {
+    synth.cancel(); // Isso também aciona o evento 'onend'
+    currentUtterance = null;
+  }
 
-document.getElementById('btnStop').addEventListener('click', () => synth.cancel());
+  // Eventos dos botões
+  document.getElementById('btnPlayPause').addEventListener('click', handlePlayPause);
+  document.getElementById('btnStop').addEventListener('click', handleStop);
 
 async function main() {
   try {
