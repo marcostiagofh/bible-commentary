@@ -204,7 +204,7 @@ const synth = window.speechSynthesis;
   // Função que popula o seletor de vozes
   function populateVoiceList() {
     const allVoices = synth.getVoices();
-    const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().startsWith('pt-'));
+    const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-'));
 
     const voiceSelect = document.getElementById('voiceSelect');
 
