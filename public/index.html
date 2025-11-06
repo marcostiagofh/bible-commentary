@@ -204,12 +204,7 @@ const synth = window.speechSynthesis;
   // Função que popula o seletor de vozes
   function populateVoiceList() {
     const allVoices = synth.getVoices();
-    // Detecta se é um dispositivo móvel. A filtragem por 'pt-' só se aplica a desktops.
-    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-
-    const newVoices = isMobile
-      ? allVoices // Em dispositivos móveis, mostra todas as vozes
-      : allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-')); // Em desktops, filtra por português
+    const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-'));
 
     const voiceSelect = document.getElementById('voiceSelect');
 
@@ -250,14 +245,10 @@ const synth = window.speechSynthesis;
     }
   }
 
-  // A lista de vozes é carregada de forma assíncrona.
-  // Verificamos se já está disponível. Se não, esperamos pelo evento onvoiceschanged.
+  populateVoiceList();
   if (speechSynthesis.onvoiceschanged !== undefined) {
     speechSynthesis.onvoiceschanged = populateVoiceList;
   }
-  // Se as vozes já estiverem carregadas na primeira execução, popula a lista imediatamente.
-  // Isso é comum em alguns navegadores de desktop.
-  if (synth.getVoices().length > 0) { populateVoiceList(); }
 
   // Função para destacar a palavra/frase durante a fala
   function highlightText(event) {
