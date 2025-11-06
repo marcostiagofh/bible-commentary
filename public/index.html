@@ -204,7 +204,12 @@ const synth = window.speechSynthesis;
   // Função que popula o seletor de vozes
   function populateVoiceList() {
     const allVoices = synth.getVoices();
-    const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-'));
+    // Detecta se é um dispositivo móvel. A filtragem por 'pt-' só se aplica a desktops.
+    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+
+    const newVoices = isMobile
+      ? allVoices // Em dispositivos móveis, mostra todas as vozes
+      : allVoices.filter(voice => voice.lang.toLowerCase().startsWith('pt-')); // Em desktops, filtra por português
 
     const voiceSelect = document.getElementById('voiceSelect');
 
