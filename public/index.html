@@ -74,7 +74,7 @@
       <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
         <div>
           <h2 id="readerTitle" class="text-2xl font-bold" style="color: var(--text-color);">Selecione um trecho</h2>
-          <p id="readerSub" class="text-sm text-gray-300 mt-1"></p>
+          <p id="readerSub" class="text-sm mt-1"></p>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
           <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center">▶️ Ler</button>
@@ -86,6 +86,13 @@
       </div>
       <div class="prose max-w-none flex-1 overflow-y-auto">
         <pre id="content" class="text-sm leading-6" style="color: var(--text-color);"></pre>
+      </div>
+      <!-- Caixa para exibir versículos clicados -->
+      <div id="verse-display-container" class="box mt-4 p-4 rounded-lg hidden flex-col max-h-64">
+          <h3 class="text-lg font-bold mb-2" style="color: var(--text-color);">Texto do Versículo</h3>
+          <div class="flex-1 overflow-y-auto">
+              <pre id="verse-display" class="text-sm leading-6" style="color: var(--text-color);"></pre>
+          </div>
       </div>
     </main>
   </div>
@@ -101,6 +108,7 @@ let currentChapter = null;
 let currentFilePath = null;
 let isAutoplayEnabled = true; // Controle para a reprodução contínua
 let musicPlayer; // Variável para o player de música do YouTube
+let bibleVerseData = {}; // Para armazenar o data_biblia.json
 
 function el(tag, attrs={}, txt=''){
   const e = document.createElement(tag);
@@ -165,6 +173,7 @@ function loadFile(book, chapter, filename){
   currentFilePath = filename;
   document.getElementById('content').textContent = bibleData[book][chapter][filename];
   document.getElementById('readerTitle').textContent = filename.replace(/\.txt$/i, '');
+  makeReferencesClickable();
 }
 
 function findNextItem() {
@@ -350,6 +359,7 @@ const synth = window.speechSynthesis;
   document.getElementById('btnPlayPause').addEventListener('click', handlePlayPause);
   document.getElementById('btnStop').addEventListener('click', handleStop);
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('content').addEventListener('click', handleVerseClick);
   document.getElementById('btnMusic').addEventListener('click', toggleMusic);
 
   function toggleTheme() {
@@ -367,6 +377,107 @@ const synth = window.speechSynthesis;
     if (savedTheme === 'day') {
       document.body.classList.add('day-mode');
     } // O modo noturno é o padrão, então não precisa de 'else'
+  }
+
+  // --- Lógica para buscar e exibir versículos ---
+
+  const livros_biblia = ["Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute", "1 Samuel", "2 Samuel", "1 Reis", "2 Reis", "1 Crônicas", "2 Crônicas", "Esdras", "Neemias", "Ester", "Jó", "Salmos", "Provérbios", "Eclesiastes", "Cântico Dos Cânticos", "Isaías", "Jeremias", "Lamentações", "Ezequiel", "Daniel", "Oséias", "Joel", "Amós", "Obadias", "Jonas", "Miquéias", "Naum", "Habacuque", "Sofonias", "Ageu", "Zacarias", "Malaquias", "Mateus", "Marcos", "Lucas", "João", "Atos", "Romanos", "1 Coríntios", "2 Coríntios", "Gálatas", "Efésios", "Filipenses", "Colossenses", "1 Tessalonicenses", "2 Tessalonicenses", "1 Timóteo", "2 Timóteo", "Tito", "Filemom", "Hebreus", "Tiago", "1 Pedro", "2 Pedro", "1 João", "2 João", "3 João", "Judas", "Apocalipse"];
+  
+  const abreviacoes = [
+  "Gn","Êx","Lv","Nm","Dt","Js","Jz","Rt","1 Sm","2 Sm","1 Rs","2 Rs","1 Cr","2 Cr","Ed","Ne","Et","Jó",
+  "Sl","Pv","Ec","Ct","Is","Jr","Lm","Ez","Dn","Os","Jl","Am","Ob","Jn","Mq","Na","Hc","Sf","Ag","Zc","Ml",
+  "Mt","Mc","Lc","Jo","At","Rm","1 Co","2 Co","Gl","Ef","Fp","Cl","1 Ts","2 Ts","1 Tm","2 Tm","Tt","Fm","Hb","Tg",
+  "1 Pe","2 Pe","1 Jo","2 Jo","3 Jo","Jd","Ap"
+  ];
+
+  // Mapa para buscar índice por nome ou abreviação
+  const livroMap = {};
+  livros_biblia.forEach((nome, i) => {
+    livroMap[nome.toLowerCase()] = i + 1;
+    livroMap[abreviacoes[i].toLowerCase()] = i + 1;
+  });
+
+
+  // Gera o regex a partir da lista de livros
+  const verseRegex = new RegExp(`\\b(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:[,-](\\d+))?`, 'gi');
+
+  function makeReferencesClickable() {
+    const contentEl = document.getElementById('content');
+    let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
+    
+    // Substitui as referências por links clicáveis
+    html = html.replace(verseRegex, (match) => {
+        return `<a href="#" class="verse-link text-blue-400 hover:underline" data-ref="${match}">${match}</a>`;
+    });
+
+    contentEl.innerHTML = html;
+  }
+
+  async function handleVerseClick(event) {
+      if (event.target.classList.contains('verse-link')) {
+          event.preventDefault();
+          const ref = event.target.dataset.ref;
+          
+          const verseDisplayContainer = document.getElementById('verse-display-container');
+          const verseDisplay = document.getElementById('verse-display');
+          
+          verseDisplay.textContent = 'Buscando...';
+          verseDisplayContainer.classList.remove('hidden');
+          verseDisplayContainer.classList.add('flex');
+
+          const text = await fetchVerseText(ref);
+          verseDisplay.textContent = text || `Referência não encontrada: ${ref}`;
+      }
+  }
+
+  function fetchVerseText(ref) {
+    // Parse da referência: Ex: "Gênesis 1:1-3"
+    // Usamos o mesmo regex, mas ancorado com ^ e $ para garantir que a string inteira corresponda.
+    const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:[,-](\\d+))?$`);
+    const match = ref.match(parsingRegex);
+
+    if (!match) return `Referência inválida: "${ref}"`;
+
+    let [, bookName, chapterNum, startVerse, endVerse] = match;
+    const endVerseNum = parseInt(endVerse || startVerse, 10);
+    const startVerseNum = parseInt(startVerse, 10);
+
+    // 1. Encontrar a chave correta do livro em bibleVerseData (ex: "01 - Gênesis")
+    const bookIndex = livroMap[bookName.toLowerCase()];
+    bookName = livros_biblia[bookIndex - 1];
+    const bookKey = Object.keys(bibleVerseData).find(k => k.startsWith(String(bookIndex).padStart(2, '0')));
+    if (!bookKey || !bibleVerseData[bookKey]) {
+        console.error(`Chave do livro não encontrada para: ${bookName}`);
+        return null;
+    }
+
+    // 2. Encontrar a chave correta do capítulo (ex: "001 - CAPÍTULO 1")
+    const chapterKey = Object.keys(bibleVerseData[bookKey]).find(k => {
+        const num = k.split(' ')[0];
+        return parseInt(num, 10) === parseInt(chapterNum, 10);
+    });
+    console.log('bookKey:', bookKey);
+    console.log('chapterKey:', chapterKey);
+    console.log('bibleVerseData:', [bookKey][chapterKey]);
+    if (!chapterKey || !bibleVerseData[bookKey][chapterKey]) {
+        console.error(`Chave do capítulo não encontrada para: ${chapterNum} em ${bookKey}`);
+        return null;
+    }
+
+    const chapterData = bibleVerseData[bookKey][chapterKey];
+    let concatenatedText = '';
+
+    // 3. Iterar e concatenar os versículos
+    for (let i = startVerseNum; i <= endVerseNum; i++) {
+        const verseFileName = `${String(i)}.txt`;
+        if (chapterData[verseFileName]) {
+            concatenatedText += `[${i}] ${chapterData[verseFileName]}\n`;
+        } else {
+            concatenatedText += `[${i}] -- Versículo não encontrado --\n`;
+        }
+    }
+
+    return concatenatedText.trim();
   }
 
   // --- Lógica da Música de Fundo (YouTube) ---
@@ -410,7 +521,18 @@ async function main() {
     const response = await fetch('./data.json');
     if (!response.ok) throw new Error(`Failed to load data.json: ${response.statusText}`);
     bibleData = await response.json();
-
+    
+    // Carrega os dados da bíblia para os versículos
+    try {
+        const bibleResponse = await fetch('./data_biblia.json');
+        if (bibleResponse.ok) {
+            bibleVerseData = await bibleResponse.json();
+        } else {
+            console.warn('data_biblia.json não encontrado. A funcionalidade de clique em versículos estará desativada.');
+        }
+    } catch (e) {
+        console.warn('Erro ao carregar data_biblia.json:', e);
+    }
     applyInitialTheme();
     loadBooks();
   } catch (e) {
