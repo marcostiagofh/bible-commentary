@@ -13,6 +13,12 @@
     --text-color: #F3F4F6; /* gray-100 */
     --input-bg: #1F2937; /* gray-800 */
     --input-text: #F3F4F6; /* gray-100 */
+    --first-color: #077336;
+    --second-color: #8C6927;;
+    --third-color: #425059;
+    --fourth-color: #592918;
+    --fifth-color: #3E3C7D;
+    --sixth-color: #B52749;
   }
 
   .day-mode {
@@ -23,7 +29,180 @@
     --input-text: #000;
   }
 
-  body { background-color: var(--page-bg); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
+   .nature-mode {
+    --page-bg: #000000; /* Fundo preto */
+    --box-bg: rgba(50, 50, 50, 0.60); /* Cinza escuro com mais de 90% de opacidade */
+    /*--text-color: #F1F2C2; /* cor padrão de leitura */
+    --input-bg: rgba(50, 50, 50, 0.95);
+    --input-text: #F1F2C2;
+
+    /* Gradiente de tons */
+    --tone-darkest: #085933;
+    --tone-darker: #077336;
+    --tone-medium: #9ABF4B;
+    --tone-light: #CED979;
+    --tone-lightest: #e1f2c2;
+
+    --text-color: var(--tone-lightest);
+  }
+
+  .gold-mode {
+    /* Gradiente de tons */
+    --tone-darkest: #614b22;
+    --tone-darker: #8C6927;
+    --tone-medium: #BF923F;
+    --tone-light: #D9B573;
+    --tone-lightest: #F2E1C2;
+    
+    --text-color: var(--tone-lightest);
+  }
+
+  .blue-mode {
+    /* Gradiente de tons */
+    --tone-darkest: #425059;
+    --tone-darker: #69828C;
+    --tone-medium: #93B3BF;
+    --tone-light: #B4CED9;
+    --tone-lightest: #D7E3E9;
+    
+    --text-color: var(--tone-lightest);
+  }
+
+  .red-mode {
+    /* Gradiente de tons */
+    --tone-darker: #592918;
+    --tone-medium: #B5654B;
+    --tone-light: #D9896A;
+    --tone-lightest: #e7c0ae;
+    
+    --text-color: var(--tone-lightest);
+  }
+
+  .purple-mode {
+    /* Gradiente de tons */
+    --tone-darkest: #592A51;
+    --tone-darker: #3E3C7D;
+    --tone-medium: #5256A0;
+    --tone-light: #8B8ABF;
+    --tone-lightest: #b8c3da;
+    
+    --text-color: var(--tone-lightest);
+  }
+
+  .pink-mode {
+    /* Gradiente de tons */
+    --tone-darkest: #601429;
+    --tone-darker: #B52749;
+    --tone-medium: #BF215B;
+    --tone-light: #D9297B;
+    --tone-lightest: #f1b8b8;
+    
+    --text-color: var(--tone-lightest);
+  }
+
+  .diamond-mode{
+    --page-bg: #000000; /* Fundo preto */
+    --box-bg: rgba(50, 50, 50, 0.60); /* Cinza escuro com mais de 90% de opacidade */
+    /*--text-color: #F1F2C2; /* cor padrão de leitura */
+    --input-bg: rgba(50, 50, 50, 0.95);
+    --input-text: #F1F2C2;
+  }
+
+   /* Aplicação dos tons aos elementos específicos */
+  .diamond-mode .book-item{
+    font-weight: bold;
+  }
+
+  .nature-mode #chapters h2,
+  .nature-mode .chapter-item {
+    color: var(--tone-medium);
+  }
+
+  .nature-mode #files h2,
+  .nature-mode .file-item {
+    color: var(--tone-light);
+  }
+
+  .nature-mode #content pre {
+    --text-color: var(--tone-lightest);
+  }
+
+  /* Aplicação dos tons aos elementos específicos no tema dourado */  
+  .gold-mode #chapters h2,
+  .gold-mode .chapter-item {
+    color: var(--tone-medium);
+  }
+
+  .gold-mode #files h2,
+  .gold-mode .file-item {
+    color: var(--tone-light);
+  }
+
+  .gold-mode #content pre {
+    --text-color: var(--tone-lightest);
+  }
+
+  /*---------------------------------------*/
+  .blue-mode #chapters h2,
+  .blue-mode .chapter-item {
+    color: var(--tone-medium);
+  }
+
+  .blue-mode #files h2,
+  .blue-mode .file-item {
+    color: var(--tone-light);
+  }
+
+  .blue-mode #content pre {
+    --text-color: var(--tone-lightest);
+  }
+
+  /*---------------------------------------*/
+  .red-mode #chapters h2,
+  .red-mode .chapter-item {
+    color: var(--tone-medium);
+  }
+
+  .red-mode #files h2,
+  .red-mode .file-item {
+    color: var(--tone-light);
+  }
+
+  .red-mode #content pre {
+    --text-color: var(--tone-lightest);
+  }
+
+  /*---------------------------------------*/
+  .purple-mode #chapters h2,
+  .purple-mode .chapter-item {
+    color: var(--tone-medium);
+  }
+
+  .purple-mode #files h2,
+  .purple-mode .file-item {
+    color: var(--tone-light);
+  }
+
+  .purple-mode #content pre {
+    --text-color: var(--tone-lightest);
+  }
+
+  /*---------------------------------------*/
+  .pink-mode #chapters h2,
+  .pink-mode .chapter-item {
+    color: var(--tone-medium);
+  }
+
+  .pink-mode #files h2,
+  .pink-mode .file-item {
+    color: var(--tone-light);
+  }
+
+  .pink-mode #content pre {
+    --text-color: var(--tone-lightest);
+  }
+
+  body { background-color: var(--page-bg); color: var(--text-color); transition: background-color 0.3s, color 0.3s; margin: 0;}
   .box { background-color: var(--box-bg); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
   .book-item:hover { background: rgba(255,255,255,0.03); }
   .chapter-item:hover { background: rgba(255,255,255,0.03); }
@@ -49,23 +228,51 @@
   ::-webkit-scrollbar-thumb:hover {
     background-color: rgba(255, 255, 255, 0.4);
   }
+
+  #background-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: -1;
+  }
+
+  .bg-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 1s ease-in-out; /* 🌙 duração da transição */
+    will-change: opacity;
+  }
 </style>
 <body class="font-sans p-4">
+  <div id="background-layer">
+    <div class="bg-image" id="bg1"></div>
+    <div class="bg-image" id="bg2"></div>
+  </div>
   <div class="flex flex-col md:flex-row md:h-screen md:max-h-screen gap-4">
     <!-- Coluna de Livros -->
     <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4" style="color: var(--text-color);">Livros</h2>
+      <h2 id="booksSectionTitle " class="text-xl font-bold mb-4" >Livros</h2>
       <input id="filterBook" placeholder="filtrar livros..." class="w-full p-2 mb-3 rounded" style="background-color: var(--input-bg); color: var(--input-text);" />
       <div id="books" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
     <!-- Coluna de Capítulos -->
     <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4" style="color: var(--text-color);">Capítulos</h2>
+      <h2 class="text-xl font-bold mb-4" >Capítulos</h2>
       <div id="chapters" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
     <!-- Coluna de Trechos -->
     <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4" style="color: var(--text-color);">Trechos / Arquivos</h2>
+      <h2 class="text-xl font-bold mb-4" >Trechos / Arquivos</h2>
       <div id="files" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
 
@@ -82,10 +289,10 @@
           <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
           <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
         </div>
-        <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded">☀️ / 🌙</button>
+        <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded">Tema</button>
       </div>
       <div class="prose max-w-none flex-1 overflow-y-auto">
-        <pre id="content" class="text-sm leading-6" style="color: var(--text-color);"></pre>
+        <pre id="content" class="text-sm leading-6"></pre>
       </div>
       <!-- Caixa para exibir versículos clicados -->
       <div id="verse-display-container" class="box mt-4 p-4 rounded-lg hidden flex-col max-h-64">
@@ -109,6 +316,7 @@ let currentFilePath = null;
 let isAutoplayEnabled = true; // Controle para a reprodução contínua
 let musicPlayer; // Variável para o player de música do YouTube
 let bibleVerseData = {}; // Para armazenar o data_biblia.json
+let currentTheme = 'dark'; // começa no modo escuro
 
 function el(tag, attrs={}, txt=''){
   const e = document.createElement(tag);
@@ -126,7 +334,23 @@ function loadBooks(){
     booksDiv.innerHTML='';
     const q = filter.value.toLowerCase();
     books.filter(b=>b.toLowerCase().includes(q)).forEach(b=>{
-      const row = el('div',{class:'p-2 rounded cursor-pointer book-item'}, b);
+      let row = el('div',{class:'p-2 rounded cursor-pointer book-item'}, b);
+      if(currentTheme == 'diamond'){
+        const match = b.match(/^(\d+)\s*-\s*/);
+        const bookIndex = match ? parseInt(match[1], 10) : null;
+        if (bookIndex < 6)
+          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--first-color)'}, b);
+        else if (bookIndex < 18)
+          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--second-color)'}, b); 
+        else if (bookIndex < 23)
+          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--third-color)'}, b); 
+        else if (bookIndex < 40)
+          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--fourth-color)'}, b); 
+        else if (bookIndex < 44)
+          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--fifth-color)'}, b); 
+        else
+          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--sixth-color)'}, b); 
+      }
       row.onclick = ()=> selectBook(b);
       booksDiv.appendChild(row);
     });
@@ -134,11 +358,64 @@ function loadBooks(){
   filter.oninput = render;
   render();
 }
+let currentBg = 1;
+
+function changeBackgroundSmoothly(newImage) {
+  const bg1 = document.getElementById('bg1');
+  const bg2 = document.getElementById('bg2');
+
+  // alterna qual está visível
+  const nextBg = currentBg === 1 ? bg2 : bg1;
+  const prevBg = currentBg === 1 ? bg1 : bg2;
+
+  // define imagem nova
+  nextBg.style.backgroundImage = `url('${newImage}')`;
+
+  // inicia transição
+  nextBg.style.opacity = 1;
+  prevBg.style.opacity = 0;
+
+  // atualiza referência atual
+  currentBg = currentBg === 1 ? 2 : 1;
+}
 
 function selectBook(book){
   currentBook = book;
   document.getElementById('readerTitle').textContent = book;
   document.getElementById('readerSub').textContent = '';
+
+  
+  if(currentTheme == 'diamond'){
+    // 🔹 Extrai o índice numérico do livro (antes do hífen)
+    const match = book.match(/^(\d+)\s*-\s*/);
+    const bookIndex = match ? parseInt(match[1], 10) : null;
+
+    const body = document.body;
+    body.classList.remove('nature-mode', 'gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'day-mode');
+    
+    // 🔹 Aplica o tema de acordo com o índice
+    if (bookIndex && bookIndex < 6) {
+      body.classList.add('nature-mode');
+      changeBackgroundSmoothly('diamante verde.jpg');
+    } else if(bookIndex && bookIndex < 18){
+      body.classList.add('gold-mode');
+      changeBackgroundSmoothly('diamante dourado.jpg');
+    } else if(bookIndex && bookIndex < 23){
+      body.classList.add('blue-mode');
+      changeBackgroundSmoothly('diamante azul claro.jpg');
+    } else if(bookIndex && bookIndex < 40){
+      body.classList.add('red-mode');
+      changeBackgroundSmoothly('diamante vermelho claro.jpg');
+    } else if(bookIndex && bookIndex < 44){
+      body.classList.add('purple-mode');
+      changeBackgroundSmoothly('diamante roxo.jpg');
+    } else {
+      body.classList.add('pink-mode');
+      changeBackgroundSmoothly('diamante rosa forte.jpg');
+    }
+
+  }
+
   // load chapters
   const chDiv = document.getElementById('chapters');
   chDiv.innerHTML='';
@@ -358,19 +635,35 @@ const synth = window.speechSynthesis;
   // Eventos dos botões
   document.getElementById('btnPlayPause').addEventListener('click', handlePlayPause);
   document.getElementById('btnStop').addEventListener('click', handleStop);
-  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
   document.getElementById('content').addEventListener('click', handleVerseClick);
   document.getElementById('btnMusic').addEventListener('click', toggleMusic);
 
-  function toggleTheme() {
-    document.body.classList.toggle('day-mode');
-    // Salva a preferência no localStorage
-    if (document.body.classList.contains('day-mode')) {
-      localStorage.setItem('theme', 'day');
-    } else {
-      localStorage.setItem('theme', 'night');
+  const themeToggle = document.getElementById('themeToggle');
+  
+  themeToggle.addEventListener('click', () => {
+    const body = document.body;
+    console.log('current_theme', currentTheme)
+    if (currentTheme === 'dark') {
+      body.classList.remove('day-mode', 'nature-mode', 'gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
+      body.classList.add('day-mode');
+      currentTheme = 'day';
+      themeToggle.textContent = '🌙 / 💎';
+      changeBackgroundSmoothly('');
+    } else if (currentTheme === 'day') {
+      body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode');
+      body.classList.add('nature-mode', 'diamond-mode');
+      currentTheme = 'diamond';
+      themeToggle.textContent = '💎 / 🌑';
+      changeBackgroundSmoothly('diamante branco.jpg');
+      loadBooks();
+    } else {;
+      body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
+      currentTheme = 'dark';
+      themeToggle.textContent = '☀️ / 💎';
+      changeBackgroundSmoothly('');
+      loadBooks()
     }
-  }
+  });
 
   function applyInitialTheme() {
     const savedTheme = localStorage.getItem('theme');
