@@ -7,6 +7,24 @@
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
   /* small custom tweaks */
+  :root {
+    --page-bg: #111827; /* gray-900 */
+    --box-bg: #1F2937; /* gray-800 */
+    --text-color: #F3F4F6; /* gray-100 */
+    --input-bg: #1F2937; /* gray-800 */
+    --input-text: #F3F4F6; /* gray-100 */
+  }
+
+  .day-mode {
+    --page-bg: rgb(233, 208, 167);
+    --box-bg: rgb(243, 242, 237);
+    --text-color: rgb(161, 0, 41);
+    --input-bg: #fff;
+    --input-text: #000;
+  }
+
+  body { background-color: var(--page-bg); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
+  .box { background-color: var(--box-bg); color: var(--text-color); transition: background-color 0.3s, color 0.3s; }
   .book-item:hover { background: rgba(255,255,255,0.03); }
   .chapter-item:hover { background: rgba(255,255,255,0.03); }
   .file-item:hover { background: rgba(255,255,255,0.03); }
@@ -32,43 +50,48 @@
     background-color: rgba(255, 255, 255, 0.4);
   }
 </style>
-<body class="bg-gray-900 text-gray-100 font-sans p-4">
+<body class="font-sans p-4">
   <div class="flex flex-col md:flex-row md:h-screen md:max-h-screen gap-4">
     <!-- Coluna de Livros -->
-    <div class="flex-shrink-0 md:flex-none md:w-64 bg-gray-800 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4">Livros</h2>
-      <input id="filterBook" placeholder="filtrar livros..." class="w-full p-2 mb-3 text-gray-900 rounded" />
+    <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
+      <h2 class="text-xl font-bold mb-4" style="color: var(--text-color);">Livros</h2>
+      <input id="filterBook" placeholder="filtrar livros..." class="w-full p-2 mb-3 rounded" style="background-color: var(--input-bg); color: var(--input-text);" />
       <div id="books" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
     <!-- Coluna de Capítulos -->
-    <div class="flex-shrink-0 md:flex-none md:w-64 bg-gray-800 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4">Capítulos</h2>
+    <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
+      <h2 class="text-xl font-bold mb-4" style="color: var(--text-color);">Capítulos</h2>
       <div id="chapters" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
     <!-- Coluna de Trechos -->
-    <div class="flex-shrink-0 md:flex-none md:w-64 bg-gray-800 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4">Trechos / Arquivos</h2>
+    <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
+      <h2 class="text-xl font-bold mb-4" style="color: var(--text-color);">Trechos / Arquivos</h2>
       <div id="files" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
 
     <!-- Área de Leitura (ocupa o resto do espaço) -->
-    <main class="flex-1 bg-gray-800 p-4 rounded-lg flex flex-col overflow-hidden">
+    <main class="box flex-1 p-4 rounded-lg flex flex-col overflow-hidden">
       <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
         <div>
-          <h2 id="readerTitle" class="text-2xl font-bold">Selecione um trecho</h2>
+          <h2 id="readerTitle" class="text-2xl font-bold" style="color: var(--text-color);">Selecione um trecho</h2>
           <p id="readerSub" class="text-sm text-gray-300 mt-1"></p>
         </div>
         <div class="flex flex-wrap gap-2 items-center">
           <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center">▶️ Ler</button>
           <button id="btnStop" class="px-3 py-1 bg-red-600 rounded">⏹️ Parar</button>
           <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
+          <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
         </div>
+        <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded">☀️ / 🌙</button>
       </div>
-      <div class="prose max-w-none text-gray-100 flex-1 overflow-y-auto">
-        <pre id="content" class="text-sm leading-6"></pre>
+      <div class="prose max-w-none flex-1 overflow-y-auto">
+        <pre id="content" class="text-sm leading-6" style="color: var(--text-color);"></pre>
       </div>
     </main>
   </div>
+
+  <!-- Player do YouTube oculto -->
+  <div id="youtube-player" style="display: none;"></div>
 
 <script>
 // Global data store
@@ -77,6 +100,7 @@ let currentBook = null;
 let currentChapter = null;
 let currentFilePath = null;
 let isAutoplayEnabled = true; // Controle para a reprodução contínua
+let musicPlayer; // Variável para o player de música do YouTube
 
 function el(tag, attrs={}, txt=''){
   const e = document.createElement(tag);
@@ -325,12 +349,69 @@ const synth = window.speechSynthesis;
   // Eventos dos botões
   document.getElementById('btnPlayPause').addEventListener('click', handlePlayPause);
   document.getElementById('btnStop').addEventListener('click', handleStop);
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  document.getElementById('btnMusic').addEventListener('click', toggleMusic);
+
+  function toggleTheme() {
+    document.body.classList.toggle('day-mode');
+    // Salva a preferência no localStorage
+    if (document.body.classList.contains('day-mode')) {
+      localStorage.setItem('theme', 'day');
+    } else {
+      localStorage.setItem('theme', 'night');
+    }
+  }
+
+  function applyInitialTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'day') {
+      document.body.classList.add('day-mode');
+    } // O modo noturno é o padrão, então não precisa de 'else'
+  }
+
+  // --- Lógica da Música de Fundo (YouTube) ---
+
+  // 1. Esta função cria o <iframe> e o player do YouTube
+  //    depois que o código da API é baixado.
+  function onYouTubeIframeAPIReady() {
+    musicPlayer = new YT.Player('youtube-player', {
+      height: '0',
+      width: '0', 
+      playerVars: {
+        // Para tocar uma playlist, usamos 'listType' e 'list'
+        'listType': 'playlist',
+        // Este é o ID da sua playlist
+        'list': 'PLEpUe48oZgzbYuBdeg44ogoyraQiKNPB2',
+        'playsinline': 1
+      }
+    });
+  }
+
+  // 2. Função para controlar a reprodução da música
+  function toggleMusic() {
+    if (!musicPlayer || typeof musicPlayer.getPlayerState !== 'function') {
+      console.log("Player de música ainda não está pronto.");
+      return;
+    }
+    const playerState = musicPlayer.getPlayerState();
+    const btnMusic = document.getElementById('btnMusic');
+
+    if (playerState === YT.PlayerState.PLAYING) {
+      musicPlayer.pauseVideo();
+      btnMusic.textContent = '🎵';
+    } else {
+      musicPlayer.playVideo();
+      btnMusic.textContent = '🔇';
+    }
+  }
 
 async function main() {
   try {
     const response = await fetch('./data.json');
     if (!response.ok) throw new Error(`Failed to load data.json: ${response.statusText}`);
     bibleData = await response.json();
+
+    applyInitialTheme();
     loadBooks();
   } catch (e) {
     console.error(e);
@@ -338,7 +419,14 @@ async function main() {
   }
 }
 
+// Carrega a API do IFrame Player do YouTube de forma assíncrona.
+const tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+const firstScriptTag = document.getElementsByTagName('script')[0];
+firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
 main();
 </script>
+
 </body>
 </html>
