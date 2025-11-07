@@ -433,12 +433,12 @@ const synth = window.speechSynthesis;
   function fetchVerseText(ref) {
     // Parse da referência: Ex: "Gênesis 1:1-3"
     // Usamos o mesmo regex, mas ancorado com ^ e $ para garantir que a string inteira corresponda.
-    const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:[,-](\\d+))?$`);
+    const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:([,-])(\\d+))?$`, 'i');
     const match = ref.match(parsingRegex);
 
     if (!match) return `Referência inválida: "${ref}"`;
 
-    let [, bookName, chapterNum, startVerse, endVerse] = match;
+    let [, bookName, chapterNum, startVerse, separator, endVerse] = match;
     const endVerseNum = parseInt(endVerse || startVerse, 10);
     const startVerseNum = parseInt(startVerse, 10);
 
@@ -467,15 +467,28 @@ const synth = window.speechSynthesis;
     const chapterData = bibleVerseData[bookKey][chapterKey];
     let concatenatedText = '';
 
-    // 3. Iterar e concatenar os versículos
-    for (let i = startVerseNum; i <= endVerseNum; i++) {
-        const verseFileName = `${String(i)}.txt`;
-        if (chapterData[verseFileName]) {
-            concatenatedText += `[${i}] ${chapterData[verseFileName]}\n`;
-        } else {
-            concatenatedText += `[${i}] -- Versículo não encontrado --\n`;
-        }
-    }
+    // Função auxiliar para buscar um único versículo
+    const getVerse = (verseNum) => {
+      const verseFileName = `${String(verseNum)}.txt`;
+      if (chapterData[verseFileName]) {
+        return `[${verseNum}] ${chapterData[verseFileName]}\n`;
+      }
+      return `[${verseNum}] -- Versículo não encontrado --\n`;
+    };
+
+    // 3. Lógica para buscar os versículos
+    if (separator === ',') {
+      // Se for vírgula, busca apenas o primeiro e o último
+      concatenatedText += getVerse(startVerseNum);
+      if (startVerseNum !== endVerseNum) {
+        concatenatedText += getVerse(endVerseNum);
+      }
+    } else {
+      // Se for hífen ou sem separador, percorre o intervalo
+      for (let i = startVerseNum; i <= endVerseNum; i++) {
+        concatenatedText += getVerse(i);
+      }
+    } 
 
     return concatenatedText.trim();
   }
