@@ -15,9 +15,9 @@
     --input-text: #F3F4F6; /* gray-100 */
     --first-color: #077336;
     --second-color: #8C6927;;
-    --third-color: #425059;
-    --fourth-color: #592918;
-    --fifth-color: #3E3C7D;
+    --third-color: #515d64;
+    --fourth-color: #634236;
+    --fifth-color: #525180;
     --sixth-color: #B52749;
   }
 
@@ -287,6 +287,15 @@
           <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center">▶️ Ler</button>
           <button id="btnStop" class="px-3 py-1 bg-red-600 rounded">⏹️ Parar</button>
           <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
+          <select id="speedSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm">
+            <option value="0.5">Lento (0.5x)</option>
+            <option value="0.75">0.75x</option>
+            <option value="0.9" selected>Padrão (0.9x)</option>
+            <option value="1">Normal (1x)</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">Rápido (1.5x)</option>
+            <option value="2">2x</option>
+          </select>
           <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
         </div>
         <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded">Tema</button>
@@ -380,6 +389,7 @@ function changeBackgroundSmoothly(newImage) {
 }
 
 function selectBook(book){
+  cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentBook = book;
   document.getElementById('readerTitle').textContent = book;
   document.getElementById('readerSub').textContent = '';
@@ -431,6 +441,7 @@ function selectBook(book){
 }
 
 function selectChapter(book, chapter){
+  cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentChapter = chapter;
   document.getElementById('readerSub').textContent = `${book} — ${chapter}`;
   const filesDiv = document.getElementById('files');
@@ -445,6 +456,7 @@ function selectChapter(book, chapter){
 }
 
 function loadFile(book, chapter, filename){
+  cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentBook = book;
   currentChapter = chapter;
   currentFilePath = filename;
@@ -496,6 +508,18 @@ function findNextItem() {
   return null;
 }
 
+function cancelCurrentSpeech() {
+  if (currentUtterance) {
+    currentUtterance.onend = null;
+    currentUtterance.onerror = null;
+    currentUtterance.onboundary = null;
+  }
+  synth.cancel();
+  isPlaying = false;
+  isPausedByUser = false;
+  document.getElementById('btnPlayPause').textContent = '▶️ Ler';
+}
+
 function playNext() {
     const nextItem = findNextItem();
     if (nextItem) {
@@ -506,321 +530,431 @@ function playNext() {
     }
 }
 const synth = window.speechSynthesis;
-  let voices = [];
-  // Variáveis para controlar o estado da fala
-  let currentUtterance = null;
-  let originalTextForSpeech = '';
+let voices = [];
+// Variáveis para controlar o estado da fala
+let speechQueue = [];
+let currentChunkIndex = 0;   // índice do chunk atualmente a ser lido
+let spokenTextLength = 0;    // quantidade total de caracteres já consumidos (só incrementa quando um chunk termina)
+let currentUtterance = null;
+let isPausedByUser = false;
+let isPlaying = false;
+let originalTextForSpeech = '';
+// Função que popula o seletor de vozes
+function populateVoiceList() {
+  const allVoices = synth.getVoices();
+  const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-'));
 
-  // Função que popula o seletor de vozes
-  function populateVoiceList() {
-    const allVoices = synth.getVoices();
-    const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-'));
+  const voiceSelect = document.getElementById('voiceSelect');
 
-    const voiceSelect = document.getElementById('voiceSelect');
-
-    // Armazena o URI da voz atualmente selecionada antes de limpar o dropdown
-    let previouslySelectedVoiceURI = null;
-    if (voiceSelect.value !== '' && voices.length > 0) { // 'voices' aqui se refere à lista global *antiga*
-        const currentVoiceOptionIndex = parseInt(voiceSelect.value, 10);
-        if (currentVoiceOptionIndex >= 0 && currentVoiceOptionIndex < voices.length) {
-            previouslySelectedVoiceURI = voices[currentVoiceOptionIndex].voiceURI;
-        }
-    }
-
-    // Atualiza a variável global 'voices' com a nova lista filtrada
-    voices = newVoices;
-
-    voiceSelect.innerHTML = ''; // limpar
-
-    // Itera sobre a lista já filtrada de vozes em português
-    voices.forEach((voice, i) => {
-      const option = document.createElement('option');
-      option.textContent = `${voice.name} (${voice.lang})`;
-      option.value = i; // O valor da opção é o índice na lista 'voices'
-      voiceSelect.appendChild(option);
-    });
-
-    // Tenta re-selecionar a voz que estava ativa
-    if (previouslySelectedVoiceURI) {
-      const newIndex = voices.findIndex(v => v.voiceURI === previouslySelectedVoiceURI);
-      if (newIndex !== -1) {
-        voiceSelect.selectedIndex = newIndex;
-      } else {
-        // Se a voz anterior não estiver mais disponível, seleciona a primeira
-        voiceSelect.selectedIndex = 0;
+  // Armazena o URI da voz atualmente selecionada antes de limpar o dropdown
+  let previouslySelectedVoiceURI = null;
+  if (voiceSelect.value !== '' && voices.length > 0) { // 'voices' aqui se refere à lista global *antiga*
+      const currentVoiceOptionIndex = parseInt(voiceSelect.value, 10);
+      if (currentVoiceOptionIndex >= 0 && currentVoiceOptionIndex < voices.length) {
+          previouslySelectedVoiceURI = voices[currentVoiceOptionIndex].voiceURI;
       }
+  }
+
+  // Atualiza a variável global 'voices' com a nova lista filtrada
+  voices = newVoices;
+
+  voiceSelect.innerHTML = ''; // limpar
+
+  // Itera sobre a lista já filtrada de vozes em português
+  voices.forEach((voice, i) => {
+    const option = document.createElement('option');
+    option.textContent = `${voice.name} (${voice.lang})`;
+    option.value = i; // O valor da opção é o índice na lista 'voices'
+    voiceSelect.appendChild(option);
+  });
+
+  // Tenta re-selecionar a voz que estava ativa
+  if (previouslySelectedVoiceURI) {
+    const newIndex = voices.findIndex(v => v.voiceURI === previouslySelectedVoiceURI);
+    if (newIndex !== -1) {
+      voiceSelect.selectedIndex = newIndex;
     } else {
-      // Se nada estava selecionado (primeira carga), seleciona a primeira
+      // Se a voz anterior não estiver mais disponível, seleciona a primeira
       voiceSelect.selectedIndex = 0;
     }
+  } else {
+    // Se nada estava selecionado (primeira carga), seleciona a primeira
+    voiceSelect.selectedIndex = 0;
   }
+}
 
-  populateVoiceList();
-  if (speechSynthesis.onvoiceschanged !== undefined) {
-    speechSynthesis.onvoiceschanged = populateVoiceList;
-  }
+populateVoiceList();
+if (speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = populateVoiceList;
+}
 
-  // Função para destacar a palavra/frase durante a fala
-  function highlightText(event) {
-    const contentEl = document.getElementById('content');
-    
-    if (event.name === 'word') {
-        const start = event.charIndex;
-        const end = start + event.charLength;
+// Função para destacar a palavra/frase durante a fala (agora ajustada para a fila)
+function highlightText(event) {
+  const contentEl = document.getElementById('content');
+  
+  // Alguns navegadores usam 'word', outros usam 'boundary'; adaptamos:
+  if (!event || (event.name !== 'word' && event.name !== 'boundary' && event.name !== 'char')) return;
 
-        // Recria o HTML com a parte destacada
-        const before = originalTextForSpeech.substring(0, start);
-        const highlighted = originalTextForSpeech.substring(start, end);
-        const after = originalTextForSpeech.substring(end);
+  // event.charIndex é relativo ao chunk atual
+  const start = (typeof event.charIndex === 'number' ? event.charIndex : 0) + spokenTextLength;
+  const end = start + (event.charLength || 0);
 
-        contentEl.innerHTML = `${escapeHtml(before)}<span class="highlight-speech">${escapeHtml(highlighted)}</span>${escapeHtml(after)}`;
-      }
-    };
+  const before = originalTextForSpeech.substring(0, start);
+  const highlighted = originalTextForSpeech.substring(start, end);
+  const after = originalTextForSpeech.substring(end);
 
-  // Função principal que gerencia Play/Pause/Resume
-  function handlePlayPause() {
-    const btn = document.getElementById('btnPlayPause');
-    const contentEl = document.getElementById('content');
+  contentEl.innerHTML =
+    `${escapeHtml(before)}<span class="highlight-speech">${escapeHtml(highlighted)}</span>${escapeHtml(after)}`;
+}
 
-    if (synth.paused && currentUtterance) {
-      // Se estiver pausado, retoma
-      synth.resume();
-      btn.textContent = '⏸️ Pausar';
-    } else if (synth.speaking) {
-      // Se estiver falando, pausa
-      synth.pause();
-      btn.textContent = '▶️ Retomar';
-    } else {
-      // Se não estiver falando, começa do início
-      originalTextForSpeech = contentEl.innerText;
-      if (originalTextForSpeech.trim() === '') return;
-
-      synth.cancel(); // Garante que qualquer fala anterior seja interrompida
-
-      currentUtterance = new SpeechSynthesisUtterance(originalTextForSpeech);
-
-      // Configurações da voz e da fala
-      const selectedIndex = document.getElementById('voiceSelect').value;
-      currentUtterance.voice = voices[selectedIndex];
-      currentUtterance.rate = 0.9;
-      currentUtterance.pitch = 1.0;
-      currentUtterance.volume = 1.0;
-
-      // Adiciona os eventos para o novo utterance
-      currentUtterance.onboundary = highlightText;
-      currentUtterance.onend = () => {
-        contentEl.innerHTML = escapeHtml(originalTextForSpeech);
-        btn.textContent = '▶️ Ler';
-        currentUtterance = null;
-        // Se o autoplay estiver ativo, toca o próximo
-        if (isAutoplayEnabled) {
-            playNext();
-        }
-      };
-
-      synth.speak(currentUtterance);
-      btn.textContent = '⏸️ Pausar';
-    }
-  }
-
-  function escapeHtml(unsafe) {
-    return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&#039;");
-  }
-
-  function handleStop() {
-    synth.cancel(); // Isso também aciona o evento 'onend'
+// Nova função para gerenciar a fila de fala
+function speakTextQueue() {
+  // Se já terminou a fila
+  if (currentChunkIndex >= speechQueue.length) {
+    isPlaying = false;
+    isPausedByUser = false;
     currentUtterance = null;
-  }
-
-  // Eventos dos botões
-  document.getElementById('btnPlayPause').addEventListener('click', handlePlayPause);
-  document.getElementById('btnStop').addEventListener('click', handleStop);
-  document.getElementById('content').addEventListener('click', handleVerseClick);
-  document.getElementById('btnMusic').addEventListener('click', toggleMusic);
-
-  const themeToggle = document.getElementById('themeToggle');
-  
-  themeToggle.addEventListener('click', () => {
-    const body = document.body;
-    console.log('current_theme', currentTheme)
-    if (currentTheme === 'dark') {
-      body.classList.remove('day-mode', 'nature-mode', 'gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
-      body.classList.add('day-mode');
-      currentTheme = 'day';
-      themeToggle.textContent = '🌙 / 💎';
-      changeBackgroundSmoothly('');
-    } else if (currentTheme === 'day') {
-      body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode');
-      body.classList.add('nature-mode', 'diamond-mode');
-      currentTheme = 'diamond';
-      themeToggle.textContent = '💎 / 🌑';
-      changeBackgroundSmoothly('diamante branco.jpg');
-      loadBooks();
-    } else {;
-      body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
-      currentTheme = 'dark';
-      themeToggle.textContent = '☀️ / 💎';
-      changeBackgroundSmoothly('');
-      loadBooks()
-    }
-  });
-
-  function applyInitialTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'day') {
-      document.body.classList.add('day-mode');
-    } // O modo noturno é o padrão, então não precisa de 'else'
-  }
-
-  // --- Lógica para buscar e exibir versículos ---
-
-  const livros_biblia = ["Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute", "1 Samuel", "2 Samuel", "1 Reis", "2 Reis", "1 Crônicas", "2 Crônicas", "Esdras", "Neemias", "Ester", "Jó", "Salmos", "Provérbios", "Eclesiastes", "Cântico Dos Cânticos", "Isaías", "Jeremias", "Lamentações", "Ezequiel", "Daniel", "Oséias", "Joel", "Amós", "Obadias", "Jonas", "Miquéias", "Naum", "Habacuque", "Sofonias", "Ageu", "Zacarias", "Malaquias", "Mateus", "Marcos", "Lucas", "João", "Atos", "Romanos", "1 Coríntios", "2 Coríntios", "Gálatas", "Efésios", "Filipenses", "Colossenses", "1 Tessalonicenses", "2 Tessalonicenses", "1 Timóteo", "2 Timóteo", "Tito", "Filemom", "Hebreus", "Tiago", "1 Pedro", "2 Pedro", "1 João", "2 João", "3 João", "Judas", "Apocalipse"];
-  
-  const abreviacoes = [
-  "Gn","Êx","Lv","Nm","Dt","Js","Jz","Rt","1 Sm","2 Sm","1 Rs","2 Rs","1 Cr","2 Cr","Ed","Ne","Et","Jó",
-  "Sl","Pv","Ec","Ct","Is","Jr","Lm","Ez","Dn","Os","Jl","Am","Ob","Jn","Mq","Na","Hc","Sf","Ag","Zc","Ml",
-  "Mt","Mc","Lc","Jo","At","Rm","1 Co","2 Co","Gl","Ef","Fp","Cl","1 Ts","2 Ts","1 Tm","2 Tm","Tt","Fm","Hb","Tg",
-  "1 Pe","2 Pe","1 Jo","2 Jo","3 Jo","Jd","Ap"
-  ];
-
-  // Mapa para buscar índice por nome ou abreviação
-  const livroMap = {};
-  livros_biblia.forEach((nome, i) => {
-    livroMap[nome.toLowerCase()] = i + 1;
-    livroMap[abreviacoes[i].toLowerCase()] = i + 1;
-  });
-
-
-  // Gera o regex a partir da lista de livros
-  const verseRegex = new RegExp(`\\b(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:[,-](\\d+))?`, 'gi');
-
-  function makeReferencesClickable() {
-    const contentEl = document.getElementById('content');
-    let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
     
-    // Substitui as referências por links clicáveis
-    html = html.replace(verseRegex, (match) => {
-        return `<a href="#" class="verse-link text-blue-400 hover:underline" data-ref="${match}">${match}</a>`;
-    });
-
-    contentEl.innerHTML = html;
+    document.getElementById('btnPlayPause').textContent = '▶️ Ler';
+    // limpa destaque
+    document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
+    // Se o autoplay estiver ativo, toca o próximo trecho
+    if (isAutoplayEnabled) {
+        playNext();
+    }
+    return;
   }
 
-  async function handleVerseClick(event) {
-      if (event.target.classList.contains('verse-link')) {
-          event.preventDefault();
-          const ref = event.target.dataset.ref;
-          
-          const verseDisplayContainer = document.getElementById('verse-display-container');
-          const verseDisplay = document.getElementById('verse-display');
-          
-          verseDisplay.textContent = 'Buscando...';
-          verseDisplayContainer.classList.remove('hidden');
-          verseDisplayContainer.classList.add('flex');
-
-          const text = await fetchVerseText(ref);
-          verseDisplay.textContent = text || `Referência não encontrada: ${ref}`;
-      }
+  // Se o usuário pausou, não iniciar novo utterance
+  if (isPausedByUser) {
+    isPlaying = false;
+    return;
   }
 
-  function fetchVerseText(ref) {
-    // Parse da referência: Ex: "Gênesis 1:1-3"
-    // Usamos o mesmo regex, mas ancorado com ^ e $ para garantir que a string inteira corresponda.
-    const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:([,-])(\\d+))?$`, 'i');
-    const match = ref.match(parsingRegex);
+  const textChunk = speechQueue[currentChunkIndex];
+  if (!textChunk) {
+    isPlaying = false;
+    return;
+  }
 
-    if (!match) return `Referência inválida: "${ref}"`;
+  // cria utterance com o chunk atual (sempre do começo do chunk)
+  currentUtterance = new SpeechSynthesisUtterance(textChunk);
+  const selectedIndex = document.getElementById('voiceSelect').value;
+  const speed = parseFloat(document.getElementById('speedSelect')?.value) || 0.9;
+  currentUtterance.voice = voices && voices[selectedIndex] ? voices[selectedIndex] : null;
+  currentUtterance.rate = speed;
+  currentUtterance.pitch = 1.0;
+  currentUtterance.volume = 1.0;
 
-    let [, bookName, chapterNum, startVerse, separator, endVerse] = match;
-    const endVerseNum = parseInt(endVerse || startVerse, 10);
-    const startVerseNum = parseInt(startVerse, 10);
+  /*
+  // boundary -> usamos para destacar (charIndex relativo ao chunk)
+  currentUtterance.onboundary = (ev) => {
+    // Alguns navegadores disparam event.name differently; guard clauses já na highlightText
+    // Repassamos o evento, mas com a garantia de que spokenTextLength está correto
+    highlightText(ev);
+  };*/
 
-    // 1. Encontrar a chave correta do livro em bibleVerseData (ex: "01 - Gênesis")
-    const bookIndex = livroMap[bookName.toLowerCase()];
-    bookName = livros_biblia[bookIndex - 1];
-    const bookKey = Object.keys(bibleVerseData).find(k => k.startsWith(String(bookIndex).padStart(2, '0')));
-    if (!bookKey || !bibleVerseData[bookKey]) {
-        console.error(`Chave do livro não encontrada para: ${bookName}`);
-        return null;
-    }
+  // quando o chunk terminar, avançamos o índice e atualizamos spokenTextLength
+  currentUtterance.onend = () => {
+    // Se o evento 'onend' foi acionado por uma pausa do usuário, não fazemos nada.
+    if (isPausedByUser) return;
 
-    // 2. Encontrar a chave correta do capítulo (ex: "001 - CAPÍTULO 1")
-    const chapterKey = Object.keys(bibleVerseData[bookKey]).find(k => {
-        const num = k.split(' ')[0];
-        return parseInt(num, 10) === parseInt(chapterNum, 10);
-    });
-    console.log('bookKey:', bookKey);
-    console.log('chapterKey:', chapterKey);
-    console.log('bibleVerseData:', [bookKey][chapterKey]);
-    if (!chapterKey || !bibleVerseData[bookKey][chapterKey]) {
-        console.error(`Chave do capítulo não encontrada para: ${chapterNum} em ${bookKey}`);
-        return null;
-    }
-
-    const chapterData = bibleVerseData[bookKey][chapterKey];
-    let concatenatedText = '';
-
-    // Função auxiliar para buscar um único versículo
-    const getVerse = (verseNum) => {
-      const verseFileName = `${String(verseNum)}.txt`;
-      if (chapterData[verseFileName]) {
-        return `[${verseNum}] ${chapterData[verseFileName]}\n`;
-      }
-      return `[${verseNum}] -- Versículo não encontrado --\n`;
-    };
-
-    // 3. Lógica para buscar os versículos
-    if (separator === ',') {
-      // Se for vírgula, busca apenas o primeiro e o último
-      concatenatedText += getVerse(startVerseNum);
-      if (startVerseNum !== endVerseNum) {
-        concatenatedText += getVerse(endVerseNum);
-      }
+    // só após o chunk terminar inteiramente incrementamos o deslocamento global
+    spokenTextLength += textChunk.length; // +1 opcional para separar (o mesmo que usou)
+    // Lógica corrigida para o cálculo do deslocamento (spokenTextLength)
+    // Em vez de adivinhar o separador (+1), calculamos a posição exata da próxima frase.
+    const nextChunkIndex = currentChunkIndex;
+    if (nextChunkIndex < speechQueue.length) {
+      const nextChunk = speechQueue[nextChunkIndex];
+      // Encontra o início da próxima frase no texto original, a partir da posição atual.
+      spokenTextLength = originalTextForSpeech.indexOf(nextChunk, spokenTextLength);
     } else {
-      // Se for hífen ou sem separador, percorre o intervalo
-      for (let i = startVerseNum; i <= endVerseNum; i++) {
-        concatenatedText += getVerse(i);
-      }
-    } 
-
-    return concatenatedText.trim();
-  }
-
-  // --- Lógica da Música de Fundo (YouTube) ---
-
-  // 1. Esta função cria o <iframe> e o player do YouTube
-  //    depois que o código da API é baixado.
-  function onYouTubeIframeAPIReady() {
-    musicPlayer = new YT.Player('youtube-player', {
-      height: '0',
-      width: '0', 
-      playerVars: {
-        // Para tocar uma playlist, usamos 'listType' e 'list'
-        'listType': 'playlist',
-        // Este é o ID da sua playlist
-        'list': 'PLEpUe48oZgzbYuBdeg44ogoyraQiKNPB2',
-        'playsinline': 1
-      }
-    });
-  }
-
-  // 2. Função para controlar a reprodução da música
-  function toggleMusic() {
-    if (!musicPlayer || typeof musicPlayer.getPlayerState !== 'function') {
-      console.log("Player de música ainda não está pronto.");
-      return;
+      // Se for a última frase, o deslocamento é o final do texto.
+      spokenTextLength = originalTextForSpeech.length;
     }
-    const playerState = musicPlayer.getPlayerState();
-    const btnMusic = document.getElementById('btnMusic');
+    currentChunkIndex++;
+    // pequena garantia para evitar reentrância imediata em alguns navegadores:
+    setTimeout(() => {
+      speakTextQueue();
+    }, 0);
+  };
 
-    if (playerState === YT.PlayerState.PLAYING) {
-      musicPlayer.pauseVideo();
-      btnMusic.textContent = '🎵';
-    } else {
-      musicPlayer.playVideo();
-      btnMusic.textContent = '🔇';
-    }
+  // Error handling minimamente útil
+  currentUtterance.onerror = () => {
+    // Em caso de erro, tenta avançar para o próximo chunk e não travar
+    currentChunkIndex++;
+    setTimeout(speakTextQueue, 0);
+  };
+
+  // Finalmente: fale
+  synth.speak(currentUtterance);
+  isPlaying = true;
+  isPausedByUser = false;
+  document.getElementById('btnPlayPause').textContent = '⏸️ Pausar';
+}
+
+// --- Play / Pause / Start handler (substitua seu handlePlayPause por esta) ---
+function handlePlayPause() {
+  const btn = document.getElementById('btnPlayPause');
+  const contentEl = document.getElementById('content');
+
+  // Se atualmente está pausado (estado interno), queremos retomar: reinicia speakTextQueue
+  if (isPausedByUser) {
+    // Cancelamos qualquer utterance pendente (garantia) e reiniciamos a fila a partir do chunk atual
+    synth.cancel();
+    isPausedByUser = false;
+    // reinicia a fala a partir do chunk atual (do começo do chunk)
+    speakTextQueue();
+    return;
   }
+
+  // Se está tocando, "pausa" — no nosso fluxo vamos cancelar a utterance atual e marcar paused
+  if (isPlaying && !isPausedByUser) {
+    currentChunkIndex--;
+    isPausedByUser = true; // 1. Define a flag PRIMEIRO para evitar a condição de corrida.
+    // 2. Desarma o evento onend do utterance atual ANTES de cancelar.
+    // Isso garante que o cancelamento não acione o avanço do chunk.
+    if (currentUtterance) currentUtterance.onend = null;
+    // Cancelamos o synth para interromper imediatamente (alguns navegadores não pausam boundary corretamente)
+    synth.cancel(); // 2. Agora cancela. O 'onend' disparado verá a flag e não fará nada.
+    isPlaying = false; 
+    // Deixamos currentChunkIndex intacto (para que, ao retomar, o chunk atual seja relido do início)
+    btn.textContent = '▶️ Retomar';
+    return;
+  }
+
+  // Caso não esteja falando (nem pausado) -> iniciar nova leitura
+  originalTextForSpeech = contentEl.innerText || '';
+  if (!originalTextForSpeech.trim()) return;
+
+  // reset
+  synth.cancel();
+  speechQueue = [];
+  currentChunkIndex = 0;
+  spokenTextLength = 0;
+  currentUtterance = null;
+  isPausedByUser = false;
+  isPlaying = false;
+
+  // Divide o texto em períodos
+  const sentences = originalTextForSpeech.match(/[^.!?\n]+[.!?\n]*|[\n]+/g) || [];
+
+  // Agrupa até 5 períodos consecutivos em um mesmo chunk
+  const groupedChunks = [];
+  for (let i = 0; i < sentences.length; i += 5) {
+    const group = sentences.slice(i, i + 5).join(' ').trim();
+    if (group) groupedChunks.push(group);
+  }
+
+  // Atualiza a fila de fala
+  speechQueue = groupedChunks;
+
+  // iniciar
+  speakTextQueue();
+}
+
+function escapeHtml(unsafe) {
+  return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&#039;");
+}
+
+function handleStop() {
+  speechQueue = []; // Limpa a fila de frases
+  synth.cancel(); // Isso também aciona o evento 'onend'
+  currentUtterance = null;
+  // O estado do botão e do texto será resetado pelo próprio evento 'onend' que é acionado pelo cancel()
+  document.getElementById('btnPlayPause').textContent = '▶️ Ler';
+}
+
+// Eventos dos botões
+document.getElementById('btnPlayPause').addEventListener('click', handlePlayPause);
+document.getElementById('btnStop').addEventListener('click', handleStop);
+document.getElementById('voiceSelect').addEventListener('change', handleStop); // Para a leitura ao trocar de voz
+document.getElementById('content').addEventListener('click', handleVerseClick);
+document.getElementById('btnMusic').addEventListener('click', toggleMusic);
+
+const themeToggle = document.getElementById('themeToggle');
+
+themeToggle.addEventListener('click', () => {
+  const body = document.body;
+  console.log('current_theme', currentTheme)
+  if (currentTheme === 'dark') {
+    body.classList.remove('day-mode', 'nature-mode', 'gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
+    body.classList.add('day-mode');
+    currentTheme = 'day';
+    themeToggle.textContent = '🌙 / 💎';
+    changeBackgroundSmoothly('');
+  } else if (currentTheme === 'day') {
+    body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode');
+    body.classList.add('nature-mode', 'diamond-mode');
+    currentTheme = 'diamond';
+    themeToggle.textContent = '💎 / 🌑';
+    changeBackgroundSmoothly('diamante branco.jpg');
+    loadBooks();
+  } else {;
+    body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
+    currentTheme = 'dark';
+    themeToggle.textContent = '☀️ / 💎';
+    changeBackgroundSmoothly('');
+    loadBooks()
+  }
+});
+
+function applyInitialTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'day') {
+    document.body.classList.add('day-mode');
+  } // O modo noturno é o padrão, então não precisa de 'else'
+}
+
+// --- Lógica para buscar e exibir versículos ---
+
+const livros_biblia = ["Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute", "1 Samuel", "2 Samuel", "1 Reis", "2 Reis", "1 Crônicas", "2 Crônicas", "Esdras", "Neemias", "Ester", "Jó", "Salmos", "Provérbios", "Eclesiastes", "Cântico Dos Cânticos", "Isaías", "Jeremias", "Lamentações", "Ezequiel", "Daniel", "Oséias", "Joel", "Amós", "Obadias", "Jonas", "Miquéias", "Naum", "Habacuque", "Sofonias", "Ageu", "Zacarias", "Malaquias", "Mateus", "Marcos", "Lucas", "João", "Atos", "Romanos", "1 Coríntios", "2 Coríntios", "Gálatas", "Efésios", "Filipenses", "Colossenses", "1 Tessalonicenses", "2 Tessalonicenses", "1 Timóteo", "2 Timóteo", "Tito", "Filemom", "Hebreus", "Tiago", "1 Pedro", "2 Pedro", "1 João", "2 João", "3 João", "Judas", "Apocalipse"];
+
+const abreviacoes = [
+"Gn","Êx","Lv","Nm","Dt","Js","Jz","Rt","1 Sm","2 Sm","1 Rs","2 Rs","1 Cr","2 Cr","Ed","Ne","Et","Jó",
+"Sl","Pv","Ec","Ct","Is","Jr","Lm","Ez","Dn","Os","Jl","Am","Ob","Jn","Mq","Na","Hc","Sf","Ag","Zc","Ml",
+"Mt","Mc","Lc","Jo","At","Rm","1 Co","2 Co","Gl","Ef","Fp","Cl","1 Ts","2 Ts","1 Tm","2 Tm","Tt","Fm","Hb","Tg",
+"1 Pe","2 Pe","1 Jo","2 Jo","3 Jo","Jd","Ap"
+];
+
+// Mapa para buscar índice por nome ou abreviação
+const livroMap = {};
+livros_biblia.forEach((nome, i) => {
+  livroMap[nome.toLowerCase()] = i + 1;
+  livroMap[abreviacoes[i].toLowerCase()] = i + 1;
+});
+
+
+// Gera o regex a partir da lista de livros
+const verseRegex = new RegExp(`\\b(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:[,-](\\d+))?`, 'gi');
+
+function makeReferencesClickable() {
+  const contentEl = document.getElementById('content');
+  let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
+  
+  // Substitui as referências por links clicáveis
+  html = html.replace(verseRegex, (match) => {
+      return `<a href="#" class="verse-link text-blue-400 hover:underline" data-ref="${match}">${match}</a>`;
+  });
+
+  contentEl.innerHTML = html;
+}
+
+async function handleVerseClick(event) {
+    if (event.target.classList.contains('verse-link')) {
+        event.preventDefault();
+        const ref = event.target.dataset.ref;
+        
+        const verseDisplayContainer = document.getElementById('verse-display-container');
+        const verseDisplay = document.getElementById('verse-display');
+        
+        verseDisplay.textContent = 'Buscando...';
+        verseDisplayContainer.classList.remove('hidden');
+        verseDisplayContainer.classList.add('flex');
+
+        const text = await fetchVerseText(ref);
+        verseDisplay.textContent = text || `Referência não encontrada: ${ref}`;
+    }
+}
+
+function fetchVerseText(ref) {
+  // Parse da referência: Ex: "Gênesis 1:1-3"
+  // Usamos o mesmo regex, mas ancorado com ^ e $ para garantir que a string inteira corresponda.
+  const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:([,-])(\\d+))?$`, 'i');
+  const match = ref.match(parsingRegex);
+
+  if (!match) return `Referência inválida: "${ref}"`;
+
+  let [, bookName, chapterNum, startVerse, separator, endVerse] = match;
+  const endVerseNum = parseInt(endVerse || startVerse, 10);
+  const startVerseNum = parseInt(startVerse, 10);
+
+  // 1. Encontrar a chave correta do livro em bibleVerseData (ex: "01 - Gênesis")
+  const bookIndex = livroMap[bookName.toLowerCase()];
+  bookName = livros_biblia[bookIndex - 1];
+  const bookKey = Object.keys(bibleVerseData).find(k => k.startsWith(String(bookIndex).padStart(2, '0')));
+  if (!bookKey || !bibleVerseData[bookKey]) {
+      console.error(`Chave do livro não encontrada para: ${bookName}`);
+      return null;
+  }
+
+  // 2. Encontrar a chave correta do capítulo (ex: "001 - CAPÍTULO 1")
+  const chapterKey = Object.keys(bibleVerseData[bookKey]).find(k => {
+      const num = k.split(' ')[0];
+      return parseInt(num, 10) === parseInt(chapterNum, 10);
+  });
+  console.log('bookKey:', bookKey);
+  console.log('chapterKey:', chapterKey);
+  console.log('bibleVerseData:', [bookKey][chapterKey]);
+  if (!chapterKey || !bibleVerseData[bookKey][chapterKey]) {
+      console.error(`Chave do capítulo não encontrada para: ${chapterNum} em ${bookKey}`);
+      return null;
+  }
+
+  const chapterData = bibleVerseData[bookKey][chapterKey];
+  let concatenatedText = '';
+
+  // Função auxiliar para buscar um único versículo
+  const getVerse = (verseNum) => {
+    const verseFileName = `${String(verseNum)}.txt`;
+    if (chapterData[verseFileName]) {
+      return `[${verseNum}] ${chapterData[verseFileName]}\n`;
+    }
+    return `[${verseNum}] -- Versículo não encontrado --\n`;
+  };
+
+  // 3. Lógica para buscar os versículos
+  if (separator === ',') {
+    // Se for vírgula, busca apenas o primeiro e o último
+    concatenatedText += getVerse(startVerseNum);
+    if (startVerseNum !== endVerseNum) {
+      concatenatedText += getVerse(endVerseNum);
+    }
+  } else {
+    // Se for hífen ou sem separador, percorre o intervalo
+    for (let i = startVerseNum; i <= endVerseNum; i++) {
+      concatenatedText += getVerse(i);
+    }
+  } 
+
+  return concatenatedText.trim();
+}
+
+// --- Lógica da Música de Fundo (YouTube) ---
+
+// 1. Esta função cria o <iframe> e o player do YouTube
+//    depois que o código da API é baixado.
+function onYouTubeIframeAPIReady() {
+  musicPlayer = new YT.Player('youtube-player', {
+    height: '0',
+    width: '0', 
+    playerVars: {
+      // Para tocar uma playlist, usamos 'listType' e 'list'
+      'listType': 'playlist',
+      // Este é o ID da sua playlist
+      'list': 'PLEpUe48oZgzbYuBdeg44ogoyraQiKNPB2',
+      'playsinline': 1
+    }
+  });
+}
+
+// 2. Função para controlar a reprodução da música
+function toggleMusic() {
+  if (!musicPlayer || typeof musicPlayer.getPlayerState !== 'function') {
+    console.log("Player de música ainda não está pronto.");
+    return;
+  }
+  const playerState = musicPlayer.getPlayerState();
+  const btnMusic = document.getElementById('btnMusic');
+
+  if (playerState === YT.PlayerState.PLAYING) {
+    musicPlayer.pauseVideo();
+    btnMusic.textContent = '🎵';
+  } else {
+    musicPlayer.playVideo();
+    btnMusic.textContent = '🔇';
+  }
+}
 
 async function main() {
   try {
