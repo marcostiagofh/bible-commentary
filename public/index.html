@@ -758,10 +758,18 @@ function escapeHtml(unsafe) {
 }
 
 function handleStop() {
-  speechQueue = []; // Limpa a fila de frases
-  synth.cancel(); // Isso também aciona o evento 'onend'
+  if(isPlaying)
+    cancelCurrentSpeech();
+  // Para a leitura de forma segura, evitando que o 'onend' seja acionado indevidamente.
+  isPlaying = false;
+  isPausedByUser = false; // Garante que o estado de pausa seja limpo.
+  speechQueue = [];
+  currentChunkIndex = 0;
+  spokenTextLength = 0;
+  // Desarma o evento onend antes de cancelar para evitar a chamada indesejada ao playNext().
+  if (currentUtterance) currentUtterance.onend = null;
+  synth.cancel();
   currentUtterance = null;
-  // O estado do botão e do texto será resetado pelo próprio evento 'onend' que é acionado pelo cancel()
   document.getElementById('btnPlayPause').textContent = '▶️ Ler';
 }
 
@@ -781,19 +789,19 @@ themeToggle.addEventListener('click', () => {
     body.classList.remove('day-mode', 'nature-mode', 'gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
     body.classList.add('day-mode');
     currentTheme = 'day';
-    themeToggle.textContent = '🌙 / 💎';
+    themeToggle.textContent = '💎';
     changeBackgroundSmoothly('');
   } else if (currentTheme === 'day') {
     body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode');
     body.classList.add('nature-mode', 'diamond-mode');
     currentTheme = 'diamond';
-    themeToggle.textContent = '💎 / 🌑';
+    themeToggle.textContent = '🌙';
     changeBackgroundSmoothly('diamante branco.jpg');
     loadBooks();
   } else {;
     body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
     currentTheme = 'dark';
-    themeToggle.textContent = '☀️ / 💎';
+    themeToggle.textContent = '☀️';
     changeBackgroundSmoothly('');
     loadBooks()
   }
