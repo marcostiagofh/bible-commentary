@@ -462,6 +462,7 @@ function loadFile(book, chapter, filename){
   currentFilePath = filename;
   document.getElementById('content').textContent = bibleData[book][chapter][filename];
   document.getElementById('readerTitle').textContent = filename.replace(/\.txt$/i, '');
+  fixReferencesSameChapter();
   makeReferencesClickable();
 }
 
@@ -834,11 +835,57 @@ livros_biblia.forEach((nome, i) => {
 
 
 // Gera o regex a partir da lista de livros
-const verseRegex = new RegExp(`\\b(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:[,-](\\d+))?`, 'gi');
+const verseRegex = new RegExp(`(?<!\\w)(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+(?:(?:,|-)\\d+)*)`, 'gi');
+
+function fixReferencesSameChapter() {
+  const contentEl = document.getElementById('content');
+  let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
+  
+  // 1. Expande as referências abreviadas como "cap. 1.23"
+  if (currentBook) {
+    // Remove o prefixo numérico (ex: "01 - Gênesis" -> "Gênesis")
+    const bookNameOnly = currentBook.replace(/^\d+\s*-\s*/, '');
+
+    // Regex para encontrar "cap. 1.2", "cap. 1.2-3", "cap. 1.2,4", etc.
+    const sameChapterRegex = /\b(?:cap\.|capítulo)\s+(\d+\.\d+(?:[,-]\d+)*)/gi;
+
+    html = html.replace(sameChapterRegex, (match, versePart) => {
+      // Reconstrói a referência completa, ex: "Gênesis 1.23"
+      // Esta string será então capturada pelo verseRegex no próximo passo.
+      return `${bookNameOnly} ${versePart}`;
+    });
+  }
+
+  contentEl.innerHTML = html;
+}
+
+function expandAbbreviatedReferences(text) {
+    // Regex para encontrar uma referência completa (com livro) ou uma abreviada (só capítulo.versículo)
+    // Grupo 1: Nome do livro (opcional)
+    // Grupo 2: Referência de capítulo.versículo
+    const fullOrAbbrRegex = new RegExp(`(?:(?<!\\w)(${[...livros_biblia, ...abreviacoes].join('|')})\\s+)?(\\d+\\.(\\d+(?:(?:,|-)\\d+)*))`, 'gi');
+    
+    let lastBook = '';
+    
+    return text.replace(fullOrAbbrRegex, (match, book, verseRef) => {
+        if (book) {
+            // Se a referência tem um nome de livro, armazena-o
+            lastBook = book;
+            return match; // Retorna a referência completa como está
+        } else if (lastBook) {
+            // Se não tem livro, mas temos um livro anterior guardado, expande a referência
+            return `${lastBook} ${verseRef}`;
+        }
+        // Se não tem livro e nunca encontramos um, retorna o trecho como está (ex: um número de versão de software)
+        return match;
+    });
+}
 
 function makeReferencesClickable() {
   const contentEl = document.getElementById('content');
   let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
+
+  html = expandAbbreviatedReferences(html);
   
   // Substitui as referências por links clicáveis
   html = html.replace(verseRegex, (match) => {
@@ -867,15 +914,14 @@ async function handleVerseClick(event) {
 
 function fetchVerseText(ref) {
   // Parse da referência: Ex: "Gênesis 1:1-3"
-  // Usamos o mesmo regex, mas ancorado com ^ e $ para garantir que a string inteira corresponda.
-  const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+)(?:([,-])(\\d+))?$`, 'i');
+  // Regex atualizado para parsear a referência completa, incluindo listas com vírgulas.
+  const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.((?:\\d+(?:(?:,|-)\\d+)*))$`, 'i');
   const match = ref.match(parsingRegex);
 
   if (!match) return `Referência inválida: "${ref}"`;
 
-  let [, bookName, chapterNum, startVerse, separator, endVerse] = match;
-  const endVerseNum = parseInt(endVerse || startVerse, 10);
-  const startVerseNum = parseInt(startVerse, 10);
+  let [, bookName, chapterNum, versesPart] = match;
+  const verseList = versesPart.split(',');
 
   // 1. Encontrar a chave correta do livro em bibleVerseData (ex: "01 - Gênesis")
   const bookIndex = livroMap[bookName.toLowerCase()];
@@ -911,19 +957,20 @@ function fetchVerseText(ref) {
     return `[${verseNum}] -- Versículo não encontrado --\n`;
   };
 
-  // 3. Lógica para buscar os versículos
-  if (separator === ',') {
-    // Se for vírgula, busca apenas o primeiro e o último
-    concatenatedText += getVerse(startVerseNum);
-    if (startVerseNum !== endVerseNum) {
-      concatenatedText += getVerse(endVerseNum);
+  // 3. Lógica atualizada para buscar os versículos (intervalos e listas)
+  verseList.forEach(verseItem => {
+    if (verseItem.includes('-')) {
+      // É um intervalo, como "20-25"
+      const [start, end] = verseItem.split('-').map(Number);
+      for (let i = start; i <= end; i++) {
+        concatenatedText += getVerse(i);
+      }
+    } else {
+      // É um único versículo, como "5" ou "31"
+      const verseNum = parseInt(verseItem, 10);
+      concatenatedText += getVerse(verseNum);
     }
-  } else {
-    // Se for hífen ou sem separador, percorre o intervalo
-    for (let i = startVerseNum; i <= endVerseNum; i++) {
-      concatenatedText += getVerse(i);
-    }
-  } 
+  });
 
   return concatenatedText.trim();
 }
