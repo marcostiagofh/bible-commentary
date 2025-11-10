@@ -305,7 +305,7 @@
       </div>
       <!-- Caixa para exibir versículos clicados -->
       <div id="verse-display-container" class="box mt-4 p-4 rounded-lg hidden flex-col max-h-64">
-          <h3 class="text-lg font-bold mb-2" style="color: var(--text-color);">Texto do Versículo</h3>
+          <h3 id="verse-display-title" class="text-lg font-bold mb-2" style="color: var(--text-color);">Texto dos Versículos</h3>
           <div class="flex-1 overflow-y-auto">
               <pre id="verse-display" class="text-sm leading-6" style="color: var(--text-color);"></pre>
           </div>
@@ -902,13 +902,20 @@ async function handleVerseClick(event) {
         
         const verseDisplayContainer = document.getElementById('verse-display-container');
         const verseDisplay = document.getElementById('verse-display');
+        const verseDisplayTitle = document.getElementById('verse-display-title');
         
         verseDisplay.textContent = 'Buscando...';
+        // Reseta o título para o padrão ao iniciar uma nova busca
+        verseDisplayTitle.textContent = 'Texto dos Versículos';
         verseDisplayContainer.classList.remove('hidden');
         verseDisplayContainer.classList.add('flex');
 
         const text = await fetchVerseText(ref);
         verseDisplay.textContent = text || `Referência não encontrada: ${ref}`;
+
+        if (text && !text.includes('não encontrado') && !text.includes('inválida')) {
+            verseDisplayTitle.textContent = `Texto dos Versículos — ${ref}`;
+        }
     }
 }
 
