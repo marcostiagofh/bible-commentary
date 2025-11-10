@@ -850,13 +850,13 @@ const abreviacoes = [
 // Mapa para buscar índice por nome ou abreviação
 const livroMap = {};
 livros_biblia.forEach((nome, i) => {
-  livroMap[nome.toLowerCase()] = i + 1;
-  livroMap[abreviacoes[i].toLowerCase()] = i + 1;
+  livroMap[nome] = i + 1;
+  livroMap[abreviacoes[i]] = i + 1;
 });
 
 
 // Gera o regex a partir da lista de livros
-const verseRegex = new RegExp(`(?<!\\w)(${[...livros_biblia, ...abreviacoes].join('|')})\\s+(\\d+)\\.(\\d+(?:(?:,|-)\\d+)*)`, 'gi');
+const verseRegex = new RegExp(`(?<!\\w)(((${[...livros_biblia, ...abreviacoes].join('|')})\\s(\\d+)\\.(\\d+(?:(?:,|-)\\d+)*)))`, 'g');
 
 function fixReferencesSameChapter() {
   const contentEl = document.getElementById('content');
@@ -869,7 +869,9 @@ function fixReferencesSameChapter() {
 
     // Regex para encontrar "cap. 1.2", "cap. 1.2-3", "cap. 1.2,4", etc.
     const sameChapterRegex = /\b(?:cap\.|capítulo)\s+(\d+\.\d+(?:[,-]\d+)*)/gi;
-
+    
+    html = html.replace(/\b(?:cap\.)\s/, 'capítulo ');
+    
     html = html.replace(sameChapterRegex, (match, versePart) => {
       // Reconstrói a referência completa, ex: "Gênesis 1.23"
       // Esta string será então capturada pelo verseRegex no próximo passo.
@@ -879,27 +881,34 @@ function fixReferencesSameChapter() {
 
   contentEl.innerHTML = html;
 }
-
 function expandAbbreviatedReferences(text) {
+    const contentEl = document.getElementById('content');
+    let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
     // Regex para encontrar uma referência completa (com livro) ou uma abreviada (só capítulo.versículo)
     // Grupo 1: Nome do livro (opcional)
     // Grupo 2: Referência de capítulo.versículo
-    const fullOrAbbrRegex = new RegExp(`(?:(?<!\\w)(${[...livros_biblia, ...abreviacoes].join('|')})\\s+)?(\\d+\\.(\\d+(?:(?:,|-)\\d+)*))`, 'gi');
-    
-    let lastBook = '';
-    
-    return text.replace(fullOrAbbrRegex, (match, book, verseRef) => {
-        if (book) {
-            // Se a referência tem um nome de livro, armazena-o
-            lastBook = book;
-            return match; // Retorna a referência completa como está
-        } else if (lastBook) {
-            // Se não tem livro, mas temos um livro anterior guardado, expande a referência
-            return `${lastBook} ${verseRef}`;
-        }
-        // Se não tem livro e nunca encontramos um, retorna o trecho como está (ex: um número de versão de software)
-        return match;
+    //const fullOrAbbrRegex = new RegExp(`(?<![\\w])(${[...livros_biblia, ...abreviacoes].join('|')})\\s+((\\d+\\.(\\d+(?:(?:,|-)\\d+)?)+(?:;\\s(\\d+\\.(\\d+(?:(?:,|-)\\d+))*)`, 'g');
+    const blockRegex = new RegExp(`(?<![\\w])((${[...livros_biblia, ...abreviacoes].join('|')})\\s+([\\d.,;\\s-]+[\\d]))`, 'g');
+    // Regex para encontrar um bloco de referência, como "Lv 6.2-4; 14.12; 19.21"
+  
+    html = html.replace(blockRegex, (fullMatch, fullReferenceBlock, book) => {
+      // Separa as partes da referência pelo ponto e vírgula. Ex: ["Lv 6.2-4", " 14.12", " 19.21"]
+      const parts = fullReferenceBlock.split(';');
+      //console.log(fullReferenceBlock);
+      // Processa cada parte para garantir que tenha o nome do livro
+      const expandedParts = parts.map((part, index) => {
+          part = part.trim();
+          if (index > 0 && !isNaN(part[0])) { // Se não for a primeira parte e começar com um número
+              return `${book} ${part}`;
+          }
+          return part; // A primeira parte já tem o livro
+      });
+      
+      // Junta as partes expandidas e as transforma em links individuais
+      return expandedParts.join('; ');
     });
+
+    return html;
 }
 
 function makeReferencesClickable() {
@@ -907,7 +916,8 @@ function makeReferencesClickable() {
   let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
 
   html = expandAbbreviatedReferences(html);
-  
+  //console.log(html);
+
   // Substitui as referências por links clicáveis
   html = html.replace(verseRegex, (match) => {
       return `<a href="#" class="verse-link text-blue-400 hover:underline" data-ref="${match}">${match}</a>`;
@@ -952,7 +962,7 @@ function fetchVerseText(ref) {
   const verseList = versesPart.split(',');
 
   // 1. Encontrar a chave correta do livro em bibleVerseData (ex: "01 - Gênesis")
-  const bookIndex = livroMap[bookName.toLowerCase()];
+  const bookIndex = livroMap[bookName];
   bookName = livros_biblia[bookIndex - 1];
   const bookKey = Object.keys(bibleVerseData).find(k => k.startsWith(String(bookIndex).padStart(2, '0')));
   if (!bookKey || !bibleVerseData[bookKey]) {
