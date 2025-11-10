@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Comentário Bíblico — Navegador Local</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
 <style>
   /* small custom tweaks */
   :root {
@@ -20,6 +21,7 @@
     --fifth-color: #525180;
     --sixth-color: #B52749;
   }
+  
 
   .day-mode {
     --page-bg: rgb(233, 208, 167);
@@ -299,15 +301,17 @@
           <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
         </div>
         <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded">Tema</button>
+        <button id="btnDecreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg">A-</button>
+        <button id="btnIncreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg">A+</button>
       </div>
       <div class="prose max-w-none flex-1 overflow-y-auto">
-        <pre id="content" class="text-sm leading-6"></pre>
+        <pre id="content" class="leading-6" style="font-size: var(--reader-font-size, 14px);"></pre>
       </div>
       <!-- Caixa para exibir versículos clicados -->
       <div id="verse-display-container" class="box mt-4 p-4 rounded-lg hidden flex-col max-h-64">
           <h3 id="verse-display-title" class="text-lg font-bold mb-2" style="color: var(--text-color);">Texto dos Versículos</h3>
           <div class="flex-1 overflow-y-auto">
-              <pre id="verse-display" class="text-sm leading-6" style="color: var(--text-color);"></pre>
+              <pre id="verse-display" class="leading-6" style="color: var(--text-color); font-size: var(--reader-font-size, 14px);"></pre>
           </div>
       </div>
     </main>
@@ -326,6 +330,7 @@ let isAutoplayEnabled = true; // Controle para a reprodução contínua
 let musicPlayer; // Variável para o player de música do YouTube
 let bibleVerseData = {}; // Para armazenar o data_biblia.json
 let currentTheme = 'dark'; // começa no modo escuro
+let currentFontSize = 14; // Tamanho da fonte padrão em pixels
 
 function el(tag, attrs={}, txt=''){
   const e = document.createElement(tag);
@@ -461,10 +466,26 @@ function loadFile(book, chapter, filename){
   currentChapter = chapter;
   currentFilePath = filename;
   document.getElementById('content').textContent = bibleData[book][chapter][filename];
+  // Salva o estado atual no localStorage
+  localStorage.setItem('currentBook', book);
+  localStorage.setItem('currentChapter', chapter);
+  localStorage.setItem('currentFilePath', filename);
+
   document.getElementById('readerTitle').textContent = filename.replace(/\.txt$/i, '');
   fixReferencesSameChapter();
   makeReferencesClickable();
 }
+
+ function loadSavedFile() {
+    const savedBook = localStorage.getItem('currentBook');
+    const savedChapter = localStorage.getItem('currentChapter');
+    const savedFilePath = localStorage.getItem('currentFilePath');
+    if (savedBook && savedChapter && savedFilePath) {
+      selectBook(savedBook);
+      selectChapter(savedBook, savedChapter);
+      loadFile(savedBook, savedChapter, savedFilePath);
+    }
+  }
 
 function findNextItem() {
   if (!currentBook || !currentChapter || !currentFilePath) return null;
@@ -817,7 +838,7 @@ function applyInitialTheme() {
 
 // --- Lógica para buscar e exibir versículos ---
 
-const livros_biblia = ["Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute", "1 Samuel", "2 Samuel", "1 Reis", "2 Reis", "1 Crônicas", "2 Crônicas", "Esdras", "Neemias", "Ester", "Jó", "Salmos", "Provérbios", "Eclesiastes", "Cântico Dos Cânticos", "Isaías", "Jeremias", "Lamentações", "Ezequiel", "Daniel", "Oséias", "Joel", "Amós", "Obadias", "Jonas", "Miquéias", "Naum", "Habacuque", "Sofonias", "Ageu", "Zacarias", "Malaquias", "Mateus", "Marcos", "Lucas", "João", "Atos", "Romanos", "1 Coríntios", "2 Coríntios", "Gálatas", "Efésios", "Filipenses", "Colossenses", "1 Tessalonicenses", "2 Tessalonicenses", "1 Timóteo", "2 Timóteo", "Tito", "Filemom", "Hebreus", "Tiago", "1 Pedro", "2 Pedro", "1 João", "2 João", "3 João", "Judas", "Apocalipse"];
+const livros_biblia = ["Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute", "1 Samuel", "2 Samuel", "1 Reis", "2 Reis", "1 Crônicas", "2 Crônicas", "Esdras", "Neemias", "Ester", "Jó", "Salmos", "Provérbios", "Eclesiastes", "Cantares", "Isaías", "Jeremias", "Lamentações", "Ezequiel", "Daniel", "Oséias", "Joel", "Amós", "Obadias", "Jonas", "Miquéias", "Naum", "Habacuque", "Sofonias", "Ageu", "Zacarias", "Malaquias", "Mateus", "Marcos", "Lucas", "João", "Atos", "Romanos", "1 Coríntios", "2 Coríntios", "Gálatas", "Efésios", "Filipenses", "Colossenses", "1 Tessalonicenses", "2 Tessalonicenses", "1 Timóteo", "2 Timóteo", "Tito", "Filemom", "Hebreus", "Tiago", "1 Pedro", "2 Pedro", "1 João", "2 João", "3 João", "Judas", "Apocalipse"];
 
 const abreviacoes = [
 "Gn","Êx","Lv","Nm","Dt","Js","Jz","Rt","1 Sm","2 Sm","1 Rs","2 Rs","1 Cr","2 Cr","Ed","Ne","Et","Jó",
@@ -1018,6 +1039,32 @@ function toggleMusic() {
   }
 }
 
+function updateFontSize(newSize) {
+  // Impõe limites mínimo e máximo para o tamanho da fonte
+  const minSize = 8;
+  const maxSize = 40;
+  const clampedSize = Math.max(minSize, Math.min(newSize, maxSize));
+
+  currentFontSize = clampedSize;
+  document.documentElement.style.setProperty('--reader-font-size', `${currentFontSize}px`);
+  
+  // Salva a preferência no localStorage
+  localStorage.setItem('fontSize', currentFontSize);
+}
+
+function applyInitialFontSize() {
+  const savedSize = localStorage.getItem('fontSize');
+  if (savedSize) {
+    updateFontSize(parseInt(savedSize, 10));
+  } else {
+    // Aplica o tamanho padrão se nada estiver salvo
+    updateFontSize(14);
+  }
+}
+
+document.getElementById('btnIncreaseFont').addEventListener('click', () => updateFontSize(currentFontSize + 1));
+document.getElementById('btnDecreaseFont').addEventListener('click', () => updateFontSize(currentFontSize - 1));
+
 async function main() {
   try {
     const response = await fetch('./data.json');
@@ -1036,7 +1083,9 @@ async function main() {
         console.warn('Erro ao carregar data_biblia.json:', e);
     }
     applyInitialTheme();
+    applyInitialFontSize();
     loadBooks();
+    loadSavedFile(); // Carrega o último arquivo salvo
   } catch (e) {
     console.error(e);
     alert('Erro fatal: Não foi possível carregar os dados do comentário. Execute o script de build (node build.js) e verifique se o arquivo data.json existe na pasta public.');
