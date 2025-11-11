@@ -274,7 +274,7 @@
     </div>
     <!-- Coluna de Trechos -->
     <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4" >Trechos / Arquivos</h2>
+      <h2 class="text-xl font-bold mb-4" >Trechos de Versículos</h2>
       <div id="files" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
     </div>
 
@@ -300,7 +300,7 @@
           </select>
           <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
         </div>
-        <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded">Tema</button>
+        <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Tema</button>
         <button id="btnDecreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A-</button>
         <button id="btnIncreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A+</button>
       </div>
@@ -453,7 +453,7 @@ function selectChapter(book, chapter){
   filesDiv.innerHTML='';
   const files = Object.keys(bibleData[book][chapter]);
   files.forEach(f=>{
-    const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, f);
+    const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, f.replace(/\.txt$/i, ''));
     r.onclick = ()=> loadFile(book, chapter, f);
     filesDiv.appendChild(r);
   });
