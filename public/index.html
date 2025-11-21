@@ -254,7 +254,52 @@
     transition: opacity 1s ease-in-out; /* 🌙 duração da transição */
     will-change: opacity;
   }
+
+  /* --- Estilos do Speed Reader --- */
+  #speed-reader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 40; /* Abaixo do modal */
+  }
+
+  #speed-reader-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 600px;
+    z-index: 50; /* Acima do overlay */
+    background-color: var(--box-bg);
+    color: var(--text-color);
+    border-radius: 8px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  #speed-reader-word {
+    font-size: 3rem;
+    font-weight: bold;
+    min-height: 5rem; /* Evita que a caixa pule de tamanho */
+    color: var(--text-color);
+  }
+
+  .speed-reader-controls button {
+    color: #FFFFFF;
+  }
 </style>
+<style>
+  /* Garante que a classe .hidden do Tailwind sempre funcione */
+  .hidden { display: none !important; }
+</style>
+
 <body class="font-sans p-4">
   <div id="background-layer">
     <div class="bg-image" id="bg1"></div>
@@ -304,6 +349,7 @@
         <button id="btnDecreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A-</button>
         <button id="btnIncreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A+</button>
         <button id="btnToggleFont" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Fonte</button>
+        <button id="btnSpeedReader" class="px-3 py-1 bg-purple-600 rounded" style="color:#FFFFFF">⚡️ Leitura Rápida</button>
       </div>
       <div class="prose max-w-none flex-1 overflow-y-auto">
         <pre id="content" class="leading-6" style="font-size: var(--reader-font-size, 14px);"></pre>
@@ -320,6 +366,21 @@
 
   <!-- Player do YouTube oculto -->
   <div id="youtube-player" style="display: none;"></div>
+
+  <!-- Janela Modal do Speed Reader (oculta por padrão) -->
+  <div id="speed-reader-overlay" class="hidden"></div>
+  <div id="speed-reader-modal" class="hidden">
+    <div id="speed-reader-word" class="text-center"></div>
+    <div class="speed-reader-controls flex items-center gap-4">
+      <button id="sr-speed-down" class="px-3 py-1 bg-gray-600 rounded text-lg">-</button>
+      <button id="sr-play-pause" class="px-4 py-1 bg-blue-600 rounded w-28">Play</button>
+      <button id="sr-speed-up" class="px-3 py-1 bg-gray-600 rounded text-lg">+</button>
+    </div>
+    <div class="text-sm">Velocidade: <span id="sr-wpm-display">250</span> PPM</div>
+    <button id="sr-close" class="absolute top-2 right-3 text-2xl font-bold">&times;</button>
+  </div>
+
+
 
 <script>
 // Global data store
@@ -1077,6 +1138,7 @@ function applyInitialFontSize() {
 document.getElementById('btnIncreaseFont').addEventListener('click', () => updateFontSize(currentFontSize + 1));
 document.getElementById('btnDecreaseFont').addEventListener('click', () => updateFontSize(currentFontSize - 1));
 
+
 function toggleFont() {
   isSerifFont = !isSerifFont;
   applyFontPreference();
@@ -1094,6 +1156,84 @@ function applyFontPreference() {
 
 document.getElementById('btnToggleFont').addEventListener('click', toggleFont);
 
+// --- Lógica do Speed Reader ---
+const srOverlay = document.getElementById('speed-reader-overlay');
+const srModal = document.getElementById('speed-reader-modal');
+const srWordDisplay = document.getElementById('speed-reader-word');
+const srWpmDisplay = document.getElementById('sr-wpm-display');
+const srPlayPauseBtn = document.getElementById('sr-play-pause');
+
+let srWords = [];
+let srCurrentWordIndex = 0;
+let srWpm = 250; // Palavras por minuto
+let srIsPlaying = false;
+let srInterval = null;
+
+function calculateDelay() {
+  return 60000 / srWpm;
+}
+
+function displayNextWord() {
+  if (srCurrentWordIndex >= srWords.length) {
+    pauseSpeedReader();
+    srWordDisplay.textContent = "Fim.";
+    return;
+  }
+  srWordDisplay.textContent = srWords[srCurrentWordIndex];
+  srCurrentWordIndex++;
+}
+
+function startSpeedReader() {
+  if (srInterval) clearInterval(srInterval);
+  srIsPlaying = true;
+  srPlayPauseBtn.textContent = 'Pause';
+  srInterval = setInterval(displayNextWord, calculateDelay());
+}
+
+function pauseSpeedReader() {
+  clearInterval(srInterval);
+  srIsPlaying = false;
+  srPlayPauseBtn.textContent = 'Play';
+}
+
+function openSpeedReader() {
+  const text = document.getElementById('content').innerText;
+  if (!text.trim()) {
+    alert("Não há texto para ler.");
+    return;
+  }
+  srWords = text.trim().split(/\s+/);
+  srCurrentWordIndex = 0;
+  srWpm = 250;
+  srWpmDisplay.textContent = srWpm;
+
+  srOverlay.classList.remove('hidden');
+  srModal.classList.remove('hidden');
+  startSpeedReader();
+}
+
+function closeSpeedReader() {
+  pauseSpeedReader();
+  srOverlay.classList.add('hidden');
+  srModal.classList.add('hidden');
+  srWordDisplay.textContent = ''; // Limpa a palavra exibida
+  srWords = [];                   // Limpa o array de palavras
+  srCurrentWordIndex = 0;         // Reseta o índice
+}
+
+function changeSpeed(amount) {
+  srWpm = Math.max(50, srWpm + amount); // Mínimo de 50 PPM
+  srWpmDisplay.textContent = srWpm;
+  if (srIsPlaying) {
+    startSpeedReader(); // Reinicia o intervalo com a nova velocidade
+  }
+}
+
+document.getElementById('btnSpeedReader').addEventListener('click', openSpeedReader);
+document.getElementById('sr-close').addEventListener('click', closeSpeedReader);
+srPlayPauseBtn.addEventListener('click', () => srIsPlaying ? pauseSpeedReader() : startSpeedReader());
+document.getElementById('sr-speed-up').addEventListener('click', () => changeSpeed(25));
+document.getElementById('sr-speed-down').addEventListener('click', () => changeSpeed(-25));
 
 async function main() {
   try {
