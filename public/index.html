@@ -288,7 +288,6 @@
         <div class="flex flex-wrap gap-2 items-center">
           <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center" style="color:#FFFFFF">▶️ Ler</button>
           <button id="btnStop" class="px-3 py-1 bg-red-600 rounded" style="color:#FFFFFF">⏹️ Parar</button>
-          <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
           <select id="speedSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm">
             <option value="0.5">Lento (0.5x)</option>
             <option value="0.75">0.75x</option>
@@ -298,11 +297,13 @@
             <option value="1.5">Rápido (1.5x)</option>
             <option value="2">2x</option>
           </select>
+          <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
           <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
         </div>
         <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Tema</button>
         <button id="btnDecreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A-</button>
         <button id="btnIncreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A+</button>
+        <button id="btnToggleFont" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Fonte</button>
       </div>
       <div class="prose max-w-none flex-1 overflow-y-auto">
         <pre id="content" class="leading-6" style="font-size: var(--reader-font-size, 14px);"></pre>
@@ -331,6 +332,7 @@ let musicPlayer; // Variável para o player de música do YouTube
 let bibleVerseData = {}; // Para armazenar o data_biblia.json
 let currentTheme = 'dark'; // começa no modo escuro
 let currentFontSize = 14; // Tamanho da fonte padrão em pixels
+let isSerifFont = false; // Controle para a fonte do leitor
 
 function el(tag, attrs={}, txt=''){
   const e = document.createElement(tag);
@@ -1075,6 +1077,24 @@ function applyInitialFontSize() {
 document.getElementById('btnIncreaseFont').addEventListener('click', () => updateFontSize(currentFontSize + 1));
 document.getElementById('btnDecreaseFont').addEventListener('click', () => updateFontSize(currentFontSize - 1));
 
+function toggleFont() {
+  isSerifFont = !isSerifFont;
+  applyFontPreference();
+  localStorage.setItem('useSerifFont', isSerifFont);
+}
+
+function applyFontPreference() {
+  const contentEl = document.getElementById('content');
+  if (isSerifFont) {
+    contentEl.style.fontFamily = "'Untitled Serif', serif";
+  } else {
+    contentEl.style.fontFamily = ''; // Reverte para o padrão do CSS (herdado de .prose)
+  }
+}
+
+document.getElementById('btnToggleFont').addEventListener('click', toggleFont);
+
+
 async function main() {
   try {
     const response = await fetch('./data.json');
@@ -1094,6 +1114,12 @@ async function main() {
     }
     applyInitialTheme();
     applyInitialFontSize();
+    // Aplica a preferência de fonte ao iniciar
+    const savedFontPref = localStorage.getItem('useSerifFont');
+    if (savedFontPref === 'true') {
+      isSerifFont = true;
+      applyFontPreference();
+    }
     loadBooks();
     loadSavedFile(); // Carrega o último arquivo salvo
   } catch (e) {
