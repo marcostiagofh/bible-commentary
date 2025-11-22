@@ -294,6 +294,31 @@
   .speed-reader-controls button {
     color: #FFFFFF;
   }
+
+  /* --- Estilos da Meta de Leitura --- */
+  #reading-goal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 60; /* Acima do speed reader */
+  }
+
+  #reading-goal-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    z-index: 70; /* Acima do overlay */
+    background-color: var(--box-bg);
+    color: var(--text-color);
+    border-radius: 8px;
+    padding: 2rem;
+  }
 </style>
 <style>
   /* Garante que a classe .hidden do Tailwind sempre funcione */
@@ -380,6 +405,14 @@
     <button id="sr-close" class="absolute top-2 right-3 text-2xl font-bold">&times;</button>
   </div>
 
+  <!-- Janela Modal da Meta de Leitura (oculta por padrão) -->
+  <div id="reading-goal-overlay" class="hidden"></div>
+  <div id="reading-goal-modal" class="hidden text-center">
+    <h3 class="text-xl font-bold mb-4">Sua Meta de Leitura Anual</h3>
+    <p id="reading-goal-text" class="mb-6 text-lg"></p>
+    <button id="reading-goal-close" class="px-4 py-2 bg-blue-600 rounded text-white">Entendido</button>
+  </div>
+
 
 
 <script>
@@ -394,6 +427,9 @@ let bibleVerseData = {}; // Para armazenar o data_biblia.json
 let currentTheme = 'dark'; // começa no modo escuro
 let currentFontSize = 14; // Tamanho da fonte padrão em pixels
 let isSerifFont = false; // Controle para a fonte do leitor
+
+books = ['Gênesis','Êxodo','Levítico','Números','Deuteronômio','Josué','Juízes','Rute','1 Samuel','2 Samuel','1 Reis','2 Reis','1 Crônicas','2 Crônicas','Esdras','Neemias','Ester','Jó','Salmos','Provérbios','Eclesiastes','Cantares','Isaías','Jeremias','Lamentações','Ezequiel','Daniel','Oséias','Joel','Amós','Obadias','Jonas','Miquéias','Naum','Habacuque','Sofonias','Ageu','Zacarias','Malaquias','Mateus','Marcos','Lucas','João','Atos','Romanos','1 Coríntios','2 Coríntios','Gálatas','Efésios','Filipenses','Colossenses','1 Tessalonicenses','2 Tessalonicenses','1 Timóteo','2 Timóteo','Tito','Filemom','Hebreus','Tiago','1 Pedro','2 Pedro','1 João','2 João','3 João','Judas','Apocalipse']
+chapters = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22]
 
 function el(tag, attrs={}, txt=''){
   const e = document.createElement(tag);
@@ -1090,8 +1126,16 @@ function onYouTubeIframeAPIReady() {
       // Este é o ID da sua playlist
       'list': 'PLEpUe48oZgzbYuBdeg44ogoyraQiKNPB2',
       'playsinline': 1
+    },
+    events: {
+      'onReady': onPlayerReady
     }
   });
+}
+
+// A API chama esta função quando o player de vídeo está pronto.
+function onPlayerReady(event) {
+  event.target.setVolume(60); // Define o volume para 60% (uma redução de 40%)
 }
 
 // 2. Função para controlar a reprodução da música
@@ -1235,6 +1279,64 @@ srPlayPauseBtn.addEventListener('click', () => srIsPlaying ? pauseSpeedReader() 
 document.getElementById('sr-speed-up').addEventListener('click', () => changeSpeed(25));
 document.getElementById('sr-speed-down').addEventListener('click', () => changeSpeed(-25));
 
+// --- Lógica da Meta de Leitura Anual ---
+function showReadingGoalModal() {
+  const overlay = document.getElementById('reading-goal-overlay');
+  const modal = document.getElementById('reading-goal-modal');
+  const textElement = document.getElementById('reading-goal-text');
+  const closeButton = document.getElementById('reading-goal-close');
+
+  // 1. Calcular o dia do ano
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now - start;
+  const oneDay = 1000 * 60 * 60 * 24;
+  const dayOfYear = Math.floor(diff / oneDay);
+
+  // 2. Calcular o total de capítulos a serem lidos (5 aos domingos, 3 nos outros dias)
+  let totalChaptersToRead = 0;
+  const year = now.getFullYear();
+  for (let i = 1; i <= dayOfYear; i++) {
+    // new Date(year, 0, i) cria a data para o i-ésimo dia do ano.
+    const currentDate = new Date(year, 0, i);
+    const dayOfWeek = currentDate.getDay(); // 0 = Domingo, 1 = Segunda, ...
+
+    if (dayOfWeek === 0) { // Se for Domingo
+      totalChaptersToRead += 5;
+    } else {
+      totalChaptersToRead += 3;
+    }
+  }
+
+  // 3. Encontrar o livro e capítulo correspondente
+  let cumulativeChapters = 0;
+
+  for (let i = 0; i < books.length; i++) {
+    const chaptersInBook = chapters[i];
+    if (cumulativeChapters + chaptersInBook >= totalChaptersToRead) {
+      targetBook = books[i];
+      targetChapter = totalChaptersToRead - cumulativeChapters;
+      break;
+    }
+    cumulativeChapters += chaptersInBook;
+    if(cumulativeChapters == 1189){
+      targetBook = books[i];
+      targetChapter = chaptersInBook;
+    }
+  }
+
+  // 4. Montar e exibir a mensagem
+  textElement.innerHTML = `Estamos no <strong>${dayOfYear}°</strong> dia do ano. Para terminar de ler toda a bíblia ainda este ano, você precisa ler até <strong>${targetBook} capítulo ${targetChapter}</strong>.`;
+  overlay.classList.remove('hidden');
+  modal.classList.remove('hidden');
+
+  // 5. Fechar o modal
+  closeButton.onclick = () => {
+    overlay.classList.add('hidden');
+    modal.classList.add('hidden');
+  };
+}
+
 async function main() {
   try {
     const response = await fetch('./data.json');
@@ -1262,6 +1364,7 @@ async function main() {
     }
     loadBooks();
     loadSavedFile(); // Carrega o último arquivo salvo
+    showReadingGoalModal(); // Mostra a meta de leitura
   } catch (e) {
     console.error(e);
     alert('Erro fatal: Não foi possível carregar os dados do comentário. Execute o script de build (node build.js) e verifique se o arquivo data.json existe na pasta public.');
