@@ -987,7 +987,8 @@ function expandAbbreviatedReferences(text) {
     // Grupo 1: Nome do livro (opcional)
     // Grupo 2: Referência de capítulo.versículo
     //const fullOrAbbrRegex = new RegExp(`(?<![\\w])(${[...livros_biblia, ...abreviacoes].join('|')})\\s+((\\d+\\.(\\d+(?:(?:,|-)\\d+)?)+(?:;\\s(\\d+\\.(\\d+(?:(?:,|-)\\d+))*)`, 'g');
-    const blockRegex = new RegExp(`(?<![\\w])((${[...livros_biblia, ...abreviacoes].join('|')})\\s+([\\d.,;\\s-]+[\\d]))`, 'g');
+    //const blockRegex = new RegExp(`(?<![\\w])((${[...livros_biblia, ...abreviacoes].join('|')})\\s+([\\d.,;\\s-]+[\\d]))`, 'g');
+    const blockRegex = new RegExp(`(?<![\\w])((${[...livros_biblia, ...abreviacoes].join('|')})\\s+\\d+\\.\\d+([-,]\\s*\\d+)*(;\\s+\\d+\\.\\d+([-,]\\s*\\d+)*)+)`, 'g');
     // Regex para encontrar um bloco de referência, como "Lv 6.2-4; 14.12; 19.21"
   
     html = html.replace(blockRegex, (fullMatch, fullReferenceBlock, book) => {
