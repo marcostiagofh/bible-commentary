@@ -210,11 +210,25 @@
   .chapter-item:hover { background: rgba(255,255,255,0.03); }
   .file-item:hover { background: rgba(255,255,255,0.03); }
   pre { white-space: pre-wrap; }
-  /* Estilo para a frase destacada durante a leitura */
-  .highlight-speech {
-    background-color: rgba(96, 165, 250, 0.5); /* Azul claro semi-transparente */
-    transition: background-color 0.2s ease-in-out;
+  /* 🔹 Estilos para a nova leitura focada */
+  .dimmed-text {
+    color: rgba(243, 244, 246, 0.25); /* cinza-100 com 25% de opacidade */
+    transition: color 0.5s ease-in-out;
   }
+  .current-chunk-highlight {
+    /* O texto atual simplesmente mantém a cor normal, sem fundo */
+    transition: color 0.5s ease-in-out;
+  }
+  /* 🔹 Cor do texto "apagado" para o tema claro (vermelho suave) */
+  .day-mode .dimmed-text {
+    color: rgba(161, 0, 41, 0.35);
+  }
+  /* 🔹 Cor do texto "apagado" para o tema diamante (igual ao padrão escuro) */
+  .diamond-mode .dimmed-text {
+    color: rgba(243, 244, 246, 0.25);
+  }
+
+
   /* Estilos para barras de rolagem mais discretas (WebKit) */
   ::-webkit-scrollbar {
     width: 8px;
@@ -661,6 +675,7 @@ let isPausedByUser = false;
 let isPlaying = false;
 let originalTextForSpeech = '';
 // Função que popula o seletor de vozes
+let shiftHighlight = false; // 🔹 Novo: controla o deslocamento do destaque
 function populateVoiceList() {
   const allVoices = synth.getVoices();
   const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-'));
@@ -709,23 +724,48 @@ if (speechSynthesis.onvoiceschanged !== undefined) {
   speechSynthesis.onvoiceschanged = populateVoiceList;
 }
 
+function highlightCurrentChunk(chunkText, chunkStartOffset) {
+    const contentEl = document.getElementById('content');
+    // Usamos o offset passado diretamente, em vez de procurar o texto.
+    const start = chunkStartOffset;
+    const end = start + chunkText.length;
+
+    if (start < 0 || start > originalTextForSpeech.length) {
+        // Se não encontrar o chunk, apenas mostra o texto todo
+        console.error("Offset do chunk inválido:", chunkStartOffset);
+        contentEl.innerHTML = escapeHtml(originalTextForSpeech);
+        return;
+    }
+
+    const before = originalTextForSpeech.substring(0, start);
+    const highlighted = originalTextForSpeech.substring(start, end); // O chunk atual
+    const after = originalTextForSpeech.substring(end);
+
+    contentEl.innerHTML =
+        `<span class="dimmed-text">${escapeHtml(before)}</span>` +
+        `<span class="current-chunk-highlight">${escapeHtml(highlighted)}</span>` +
+        `<span class="dimmed-text">${escapeHtml(after)}</span>`;
+
+    // Rola a visão para o início do chunk atual
+    const highlightedSpan = contentEl.querySelector('.current-chunk-highlight');
+    if (highlightedSpan) {
+        highlightedSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
 // Função para destacar a palavra/frase durante a fala (agora ajustada para a fila)
-function highlightText(event) {
-  const contentEl = document.getElementById('content');
-  
-  // Alguns navegadores usam 'word', outros usam 'boundary'; adaptamos:
-  if (!event || (event.name !== 'word' && event.name !== 'boundary' && event.name !== 'char')) return;
+function handleWordBoundary(event) {
+    const contentEl = document.getElementById('content');
+    if (!event || (event.name !== 'word' && event.name !== 'boundary')) return;
 
-  // event.charIndex é relativo ao chunk atual
-  const start = (typeof event.charIndex === 'number' ? event.charIndex : 0) + spokenTextLength;
-  const end = start + (event.charLength || 0);
+    // Esta função agora só faz o auto-scroll, sem re-renderizar o HTML.
+    // Para isso, criamos um marcador temporário e invisível para saber onde rolar.
 
-  const before = originalTextForSpeech.substring(0, start);
-  const highlighted = originalTextForSpeech.substring(start, end);
-  const after = originalTextForSpeech.substring(end);
-
-  contentEl.innerHTML =
-    `${escapeHtml(before)}<span class="highlight-speech">${escapeHtml(highlighted)}</span>${escapeHtml(after)}`;
+    // ⭐ Auto-rolagem: Encontra o span recém-criado e rola até ele
+    const highlightedSpan = contentEl.querySelector('.highlight-speech');
+    if (highlightedSpan) {
+        highlightedSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 // Nova função para gerenciar a fila de fala
@@ -733,11 +773,12 @@ function speakTextQueue() {
   // Se já terminou a fila
   if (currentChunkIndex >= speechQueue.length) {
     isPlaying = false;
-    isPausedByUser = false;
+    isPausedByUser = false; // Resetar estado de pausa
     currentUtterance = null;
     
+    shiftHighlight = false; // 🔹 Reseta a flag no final da leitura
     document.getElementById('btnPlayPause').textContent = '▶️ Ler';
-    // limpa destaque
+    // 🔹 limpa destaque, restaurando o texto original
     document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
     // Se o autoplay estiver ativo, toca o próximo trecho
     if (isAutoplayEnabled) {
@@ -752,7 +793,8 @@ function speakTextQueue() {
     return;
   }
 
-  const textChunk = speechQueue[currentChunkIndex];
+  // 🔹 Agora a fila armazena objetos com o texto e sua posição inicial
+  const { text: textChunk, offset: chunkOffset } = speechQueue[currentChunkIndex];
   if (!textChunk) {
     isPlaying = false;
     return;
@@ -767,32 +809,20 @@ function speakTextQueue() {
   currentUtterance.pitch = 1.0;
   currentUtterance.volume = 1.0;
 
-  /*
-  // boundary -> usamos para destacar (charIndex relativo ao chunk)
-  currentUtterance.onboundary = (ev) => {
-    // Alguns navegadores disparam event.name differently; guard clauses já na highlightText
-    // Repassamos o evento, mas com a garantia de que spokenTextLength está correto
-    highlightText(ev);
-  };*/
+  // 🔹 ANTES de falar, destaca o chunk inteiro, passando o texto e seu offset
+  highlightCurrentChunk(textChunk, chunkOffset);
+  
+  // O evento 'onboundary' não é mais necessário para destacar, mas pode ser útil
+  // para auto-scroll mais preciso no futuro. Por enquanto, vamos desativá-lo.
+  currentUtterance.onboundary = null; // (ev) => handleWordBoundary(ev);
 
   // quando o chunk terminar, avançamos o índice e atualizamos spokenTextLength
   currentUtterance.onend = () => {
-    // Se o evento 'onend' foi acionado por uma pausa do usuário, não fazemos nada.
     if (isPausedByUser) return;
 
-    // só após o chunk terminar inteiramente incrementamos o deslocamento global
-    spokenTextLength += textChunk.length; // +1 opcional para separar (o mesmo que usou)
-    // Lógica corrigida para o cálculo do deslocamento (spokenTextLength)
-    // Em vez de adivinhar o separador (+1), calculamos a posição exata da próxima frase.
-    const nextChunkIndex = currentChunkIndex;
-    if (nextChunkIndex < speechQueue.length) {
-      const nextChunk = speechQueue[nextChunkIndex];
-      // Encontra o início da próxima frase no texto original, a partir da posição atual.
-      spokenTextLength = originalTextForSpeech.indexOf(nextChunk, spokenTextLength);
-    } else {
-      // Se for a última frase, o deslocamento é o final do texto.
-      spokenTextLength = originalTextForSpeech.length;
-    }
+    // Não precisamos mais de spokenTextLength, pois o offset já é conhecido.
+    // spokenTextLength = chunkOffset + textChunk.length;
+
     currentChunkIndex++;
     // pequena garantia para evitar reentrância imediata em alguns navegadores:
     setTimeout(() => {
@@ -831,14 +861,15 @@ function handlePlayPause() {
 
   // Se está tocando, "pausa" — no nosso fluxo vamos cancelar a utterance atual e marcar paused
   if (isPlaying && !isPausedByUser) {
-    currentChunkIndex--;
     isPausedByUser = true; // 1. Define a flag PRIMEIRO para evitar a condição de corrida.
     // 2. Desarma o evento onend do utterance atual ANTES de cancelar.
     // Isso garante que o cancelamento não acione o avanço do chunk.
     if (currentUtterance) currentUtterance.onend = null;
     // Cancelamos o synth para interromper imediatamente (alguns navegadores não pausam boundary corretamente)
     synth.cancel(); // 2. Agora cancela. O 'onend' disparado verá a flag e não fará nada.
-    isPlaying = false; 
+    isPlaying = false;
+    // Não decrementamos o currentChunkIndex. Ao retomar, o mesmo chunk será relido.
+
     // Deixamos currentChunkIndex intacto (para que, ao retomar, o chunk atual seja relido do início)
     btn.textContent = '▶️ Retomar';
     return;
@@ -854,21 +885,25 @@ function handlePlayPause() {
   currentChunkIndex = 0;
   spokenTextLength = 0;
   currentUtterance = null;
+  shiftHighlight = false; // 🔹 Reseta a flag ao iniciar uma nova leitura
   isPausedByUser = false;
   isPlaying = false;
 
-  // Divide o texto em períodos
-  const sentences = originalTextForSpeech.match(/[^.!?\n]+[.!?\n]*|[\n]+/g) || [];
-
-  // Agrupa até 5 períodos consecutivos em um mesmo chunk
-  const groupedChunks = [];
-  for (let i = 0; i < sentences.length; i += 5) {
-    const group = sentences.slice(i, i + 5).join(' ').trim();
-    if (group) groupedChunks.push(group);
+  // 🔹 Lógica de divisão de texto atualizada para armazenar o offset
+  const sentencesRegex = /[^.!?\n]+[.!?\n]*|[\n]+/g;
+  let match;
+  const sentences = [];
+  while ((match = sentencesRegex.exec(originalTextForSpeech)) !== null) {
+      sentences.push({ text: match[0], offset: match.index });
   }
 
-  // Atualiza a fila de fala
-  speechQueue = groupedChunks;
+  for (let i = 0; i < sentences.length; i += 5) {
+      const group = sentences.slice(i, i + 5);
+      const combinedText = group.map(s => s.text).join('').trim();
+      if (combinedText) {
+          speechQueue.push({ text: combinedText, offset: group[0].offset });
+      }
+  }
 
   // iniciar
   speakTextQueue();
@@ -888,9 +923,12 @@ function handleStop() {
   currentChunkIndex = 0;
   spokenTextLength = 0;
   // Desarma o evento onend antes de cancelar para evitar a chamada indesejada ao playNext().
+  shiftHighlight = false; // 🔹 Reseta a flag ao parar
   if (currentUtterance) currentUtterance.onend = null;
   synth.cancel();
   currentUtterance = null;
+  // 🔹 Restaura o texto original ao parar
+  document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
   document.getElementById('btnPlayPause').textContent = '▶️ Ler';
 }
 
@@ -1162,22 +1200,24 @@ function updateFontSize(newSize) {
   const minSize = 8;
   const maxSize = 40;
   const clampedSize = Math.max(minSize, Math.min(newSize, maxSize));
+  
+  // Calcula o espaçamento entre linhas (line-height) com base no tamanho da fonte.
+  // Um fator de 1.6 é geralmente bom para legibilidade.
+  const lineHeight = clampedSize * 1.6;
 
   currentFontSize = clampedSize;
   document.documentElement.style.setProperty('--reader-font-size', `${currentFontSize}px`);
+  document.documentElement.style.setProperty('--reader-line-height', `${lineHeight}px`);
   
   // Salva a preferência no localStorage
   localStorage.setItem('fontSize', currentFontSize);
 }
 
 function applyInitialFontSize() {
-  const savedSize = localStorage.getItem('fontSize');
-  if (savedSize) {
-    updateFontSize(parseInt(savedSize, 10));
-  } else {
-    // Aplica o tamanho padrão se nada estiver salvo
-    updateFontSize(14);
-  }
+    const savedSize = localStorage.getItem('fontSize');
+    const initialSize = savedSize ? parseInt(savedSize, 10) : 14;
+    // Chama a função que agora também define o line-height
+    updateFontSize(initialSize);
 }
 
 document.getElementById('btnIncreaseFont').addEventListener('click', () => updateFontSize(currentFontSize + 1));
