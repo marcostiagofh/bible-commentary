@@ -333,6 +333,153 @@
     border-radius: 8px;
     padding: 2rem;
   }
+
+  .site-search {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 35;
+  }
+
+  .search-shell {
+    position: relative;
+    width: min(720px, 64vw);
+  }
+
+  .search-control {
+    align-items: center;
+    background-color: var(--input-bg);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    color: var(--input-text);
+    display: flex;
+    min-height: 44px;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .search-control:focus-within {
+    border-color: rgba(96, 165, 250, 0.85);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22);
+  }
+
+  #globalSearchInput {
+    background: transparent;
+    color: var(--input-text);
+    flex: 1;
+    min-width: 0;
+    outline: none;
+    padding: 0.65rem 0.85rem;
+  }
+
+  .search-icon-button {
+    align-items: center;
+    color: var(--input-text);
+    display: inline-flex;
+    flex: 0 0 42px;
+    height: 44px;
+    justify-content: center;
+    opacity: 0.85;
+  }
+
+  .search-icon-button:hover,
+  .search-icon-button.is-active {
+    background: rgba(96, 165, 250, 0.18);
+    opacity: 1;
+  }
+
+  .search-icon-button.is-active {
+    color: #93c5fd;
+  }
+
+  #globalSearchResults {
+    background-color: var(--box-bg);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+    left: 0;
+    max-height: min(420px, 62vh);
+    overflow-y: auto;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.35rem);
+  }
+
+  .search-result-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    display: block;
+    padding: 0.75rem 0.9rem;
+    text-align: left;
+    width: 100%;
+  }
+
+  .search-result-item:last-child {
+    border-bottom: 0;
+  }
+
+  .search-result-item:hover,
+  .search-result-item:focus {
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+  }
+
+  .search-result-title {
+    color: var(--text-color);
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .search-result-snippet {
+    color: var(--text-color);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    margin-top: 0.25rem;
+    opacity: 0.78;
+  }
+
+  .search-highlight {
+    background: rgba(250, 204, 21, 0.36);
+    border-radius: 3px;
+    color: inherit;
+    padding: 0 0.08em;
+  }
+
+  .search-result-snippet .search-highlight {
+    background: rgba(250, 204, 21, 0.44);
+  }
+
+  .day-mode .search-highlight {
+    background: rgba(180, 83, 9, 0.22);
+  }
+
+  .search-empty-state {
+    opacity: 0.75;
+    padding: 0.75rem 0.9rem;
+  }
+
+  .search-filter-empty {
+    opacity: 0.7;
+  }
+
+  @media (max-width: 767px) {
+    .site-search {
+      justify-content: stretch;
+    }
+
+    .search-shell {
+      width: 100%;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .app-layout {
+      height: calc(100vh - 5rem);
+      max-height: calc(100vh - 5rem);
+    }
+  }
 </style>
 <style>
   /* Garante que a classe .hidden do Tailwind sempre funcione */
@@ -344,7 +491,17 @@
     <div class="bg-image" id="bg1"></div>
     <div class="bg-image" id="bg2"></div>
   </div>
-  <div class="flex flex-col md:flex-row md:h-screen md:max-h-screen gap-4">
+  <header class="site-search">
+    <div class="search-shell">
+      <div class="search-control">
+        <input id="globalSearchInput" type="search" placeholder="Pesquisar nos comentários..." autocomplete="off" aria-label="Pesquisar nos comentários" />
+        <button id="partialMatchToggle" class="search-icon-button" type="button" title="Correspondência parcial" aria-label="Ativar correspondência parcial" aria-pressed="false">≈</button>
+        <button id="globalSearchSubmit" class="search-icon-button" type="button" title="Pesquisar" aria-label="Pesquisar">🔍</button>
+      </div>
+      <div id="globalSearchResults" class="hidden" role="listbox" aria-label="Resultados da pesquisa"></div>
+    </div>
+  </header>
+  <div class="app-layout flex flex-col md:flex-row gap-4">
     <!-- Coluna de Livros -->
     <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
       <h2 id="booksSectionTitle " class="text-xl font-bold mb-4" >Livros</h2>
@@ -441,6 +598,10 @@ let bibleVerseData = {}; // Para armazenar o data_biblia.json
 let currentTheme = 'dark'; // começa no modo escuro
 let currentFontSize = 14; // Tamanho da fonte padrão em pixels
 let isSerifFont = false; // Controle para a fonte do leitor
+let searchIndex = [];
+let activeSearch = null;
+let isPartialMatchEnabled = false;
+const SEARCH_RESULT_LIMIT = 30;
 
 books = ['Gênesis','Êxodo','Levítico','Números','Deuteronômio','Josué','Juízes','Rute','1 Samuel','2 Samuel','1 Reis','2 Reis','1 Crônicas','2 Crônicas','Esdras','Neemias','Ester','Jó','Salmos','Provérbios','Eclesiastes','Cantares','Isaías','Jeremias','Lamentações','Ezequiel','Daniel','Oséias','Joel','Amós','Obadias','Jonas','Miquéias','Naum','Habacuque','Sofonias','Ageu','Zacarias','Malaquias','Mateus','Marcos','Lucas','João','Atos','Romanos','1 Coríntios','2 Coríntios','Gálatas','Efésios','Filipenses','Colossenses','1 Tessalonicenses','2 Tessalonicenses','1 Timóteo','2 Timóteo','Tito','Filemom','Hebreus','Tiago','1 Pedro','2 Pedro','1 João','2 João','3 João','Judas','Apocalipse']
 chapters = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22]
@@ -452,38 +613,407 @@ function el(tag, attrs={}, txt=''){
   return e;
 }
 
-function loadBooks(){
-  const booksDiv = document.getElementById('books');
-  booksDiv.innerHTML='';
-  const filter = document.getElementById('filterBook');
-  const books = Object.keys(bibleData);
-  function render(){
-    booksDiv.innerHTML='';
-    const q = filter.value.toLowerCase();
-    books.filter(b=>b.toLowerCase().includes(q)).forEach(b=>{
-      let row = el('div',{class:'p-2 rounded cursor-pointer book-item'}, b);
-      if(currentTheme == 'diamond'){
-        const match = b.match(/^(\d+)\s*-\s*/);
-        const bookIndex = match ? parseInt(match[1], 10) : null;
-        if (bookIndex < 6)
-          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--first-color)'}, b);
-        else if (bookIndex < 18)
-          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--second-color)'}, b); 
-        else if (bookIndex < 23)
-          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--third-color)'}, b); 
-        else if (bookIndex < 40)
-          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--fourth-color)'}, b); 
-        else if (bookIndex < 44)
-          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--fifth-color)'}, b); 
-        else
-          row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--sixth-color)'}, b); 
-      }
-      row.onclick = ()=> selectBook(b);
-      booksDiv.appendChild(row);
-    });
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function getSearchTerms(query) {
+  return normalizeSearchText(query).split(/\s+/).filter(Boolean);
+}
+
+function recordMatchesSearch(record, query, partialMatch) {
+  const normalizedQuery = normalizeSearchText(query).trim();
+  if (!normalizedQuery) return false;
+  if (partialMatch) {
+    const terms = getSearchTerms(query);
+    return terms.length > 0 && terms.every(term => record.searchText.includes(term));
   }
-  filter.oninput = render;
-  render();
+  return record.searchText.includes(normalizedQuery);
+}
+
+function buildSearchIndex() {
+  searchIndex = [];
+  Object.keys(bibleData).forEach(book => {
+    Object.keys(bibleData[book]).forEach(chapter => {
+      Object.keys(bibleData[book][chapter]).forEach(file => {
+        const content = bibleData[book][chapter][file] || '';
+        const fileTitle = file.replace(/\.txt$/i, '');
+        searchIndex.push({
+          book,
+          chapter,
+          file,
+          fileTitle,
+          content,
+          normalizedContent: normalizeSearchText(content),
+          searchText: normalizeSearchText(`${book} ${chapter} ${fileTitle} ${content}`)
+        });
+      });
+    });
+  });
+}
+
+function getSearchMatches(query, partialMatch) {
+  return searchIndex.filter(record => recordMatchesSearch(record, query, partialMatch));
+}
+
+function getSearchHighlightNeedles(query, partialMatch) {
+  const normalizedQuery = normalizeSearchText(query).trim();
+  const terms = getSearchTerms(query);
+  const needles = partialMatch ? terms : [normalizedQuery, ...terms];
+  return [...new Set(needles)]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+}
+
+function getNormalizedTextMap(text) {
+  let normalized = '';
+  const map = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const normalizedChar = normalizeSearchText(text[i]);
+    for (let j = 0; j < normalizedChar.length; j++) {
+      normalized += normalizedChar[j];
+      map.push(i);
+    }
+  }
+
+  return { normalized, map };
+}
+
+function getHighlightRanges(text, query, partialMatch) {
+  const needles = getSearchHighlightNeedles(query, partialMatch);
+  if (needles.length === 0 || !text) return [];
+
+  const { normalized, map } = getNormalizedTextMap(text);
+  const ranges = [];
+
+  needles.forEach(needle => {
+    let fromIndex = 0;
+    while (fromIndex < normalized.length) {
+      const matchIndex = normalized.indexOf(needle, fromIndex);
+      if (matchIndex === -1) break;
+
+      const start = map[matchIndex];
+      const end = map[matchIndex + needle.length - 1] + 1;
+      const overlaps = ranges.some(range => start < range.end && end > range.start);
+
+      if (!overlaps) ranges.push({ start, end });
+      fromIndex = matchIndex + Math.max(needle.length, 1);
+    }
+  });
+
+  return ranges.sort((a, b) => a.start - b.start);
+}
+
+function highlightSearchTermsHtml(text, query, partialMatch) {
+  const ranges = getHighlightRanges(text, query, partialMatch);
+  if (ranges.length === 0) return escapeHtml(text);
+
+  let html = '';
+  let cursor = 0;
+  ranges.forEach(range => {
+    html += escapeHtml(text.slice(cursor, range.start));
+    html += `<span class="search-highlight">${escapeHtml(text.slice(range.start, range.end))}</span>`;
+    cursor = range.end;
+  });
+  html += escapeHtml(text.slice(cursor));
+  return html;
+}
+
+function applySearchHighlightToElement(root, query, partialMatch) {
+  if (!root || !query) return;
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || parent.closest('.verse-link, .search-highlight')) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return getHighlightRanges(node.nodeValue, query, partialMatch).length > 0
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    }
+  });
+
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+  textNodes.forEach(node => {
+    const ranges = getHighlightRanges(node.nodeValue, query, partialMatch);
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+
+    ranges.forEach(range => {
+      if (range.start > cursor) {
+        fragment.appendChild(document.createTextNode(node.nodeValue.slice(cursor, range.start)));
+      }
+      const highlight = el('span', {class: 'search-highlight'});
+      highlight.textContent = node.nodeValue.slice(range.start, range.end);
+      fragment.appendChild(highlight);
+      cursor = range.end;
+    });
+
+    if (cursor < node.nodeValue.length) {
+      fragment.appendChild(document.createTextNode(node.nodeValue.slice(cursor)));
+    }
+
+    node.parentNode.replaceChild(fragment, node);
+  });
+}
+
+function removeSearchHighlights(root) {
+  if (!root) return;
+  root.querySelectorAll('.search-highlight').forEach(highlight => {
+    highlight.replaceWith(document.createTextNode(highlight.textContent));
+  });
+  root.normalize();
+}
+
+function applyActiveSearchHighlightToContent() {
+  if (!activeSearch) return;
+  applySearchHighlightToElement(
+    document.getElementById('content'),
+    activeSearch.query,
+    activeSearch.partialMatch
+  );
+}
+
+function hasSearchMatchForBook(book) {
+  if (!activeSearch) return true;
+  return activeSearch.records.some(record => record.book === book);
+}
+
+function hasSearchMatchForChapter(book, chapter) {
+  if (!activeSearch) return true;
+  return activeSearch.records.some(record => record.book === book && record.chapter === chapter);
+}
+
+function hasSearchMatchForFile(book, chapter, file) {
+  if (!activeSearch) return true;
+  return activeSearch.records.some(record => record.book === book && record.chapter === chapter && record.file === file);
+}
+
+function createBookRow(book) {
+  let row = el('div',{class:'p-2 rounded cursor-pointer book-item'}, book);
+  if(currentTheme == 'diamond'){
+    const match = book.match(/^(\d+)\s*-\s*/);
+    const bookIndex = match ? parseInt(match[1], 10) : null;
+    if (bookIndex < 6)
+      row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--first-color)'}, book);
+    else if (bookIndex < 18)
+      row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--second-color)'}, book); 
+    else if (bookIndex < 23)
+      row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--third-color)'}, book); 
+    else if (bookIndex < 40)
+      row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--fourth-color)'}, book); 
+    else if (bookIndex < 44)
+      row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--fifth-color)'}, book); 
+    else
+      row = el('div',{class:'p-2 rounded cursor-pointer book-item',style: 'color:var(--sixth-color)'}, book); 
+  }
+  row.onclick = ()=> selectBook(book);
+  return row;
+}
+
+function renderBooks() {
+  const booksDiv = document.getElementById('books');
+  const filter = document.getElementById('filterBook');
+  booksDiv.innerHTML='';
+  const q = normalizeSearchText(filter.value).trim();
+  const books = Object.keys(bibleData)
+    .filter(book => hasSearchMatchForBook(book))
+    .filter(book => normalizeSearchText(book).includes(q));
+
+  if (books.length === 0) {
+    booksDiv.appendChild(el('div', {class: 'p-2 text-sm search-filter-empty'}, 'Nenhum livro encontrado.'));
+    return;
+  }
+
+  books.forEach(book => booksDiv.appendChild(createBookRow(book)));
+}
+
+function getChaptersForBook(book) {
+  return Object.keys(bibleData[book] || {}).filter(chapter => hasSearchMatchForChapter(book, chapter));
+}
+
+function getFilesForChapter(book, chapter) {
+  return Object.keys((bibleData[book] || {})[chapter] || {}).filter(file => hasSearchMatchForFile(book, chapter, file));
+}
+
+function loadBooks(){
+  const filter = document.getElementById('filterBook');
+  filter.oninput = renderBooks;
+  renderBooks();
+}
+
+function getSearchSnippet(record, query, partialMatch) {
+  const normalizedQuery = normalizeSearchText(query).trim();
+  const terms = getSearchTerms(query);
+  const needle = partialMatch && terms.length > 0 ? terms[0] : normalizedQuery;
+  const contentToSearch = record.normalizedContent || '';
+  let index = contentToSearch.indexOf(needle);
+
+  if (index < 0 && terms.length > 0) {
+    index = contentToSearch.indexOf(terms.find(term => contentToSearch.includes(term)) || '');
+  }
+
+  if (index < 0) index = 0;
+
+  const start = Math.max(0, index - 70);
+  const end = Math.min(record.content.length, index + 170);
+  const prefix = start > 0 ? '...' : '';
+  const suffix = end < record.content.length ? '...' : '';
+  return `${prefix}${record.content.slice(start, end).replace(/\s+/g, ' ').trim()}${suffix}`;
+}
+
+function getSearchSnippetHtml(record, query, partialMatch) {
+  return highlightSearchTermsHtml(getSearchSnippet(record, query, partialMatch), query, partialMatch);
+}
+
+function hideSearchDropdown() {
+  document.getElementById('globalSearchResults').classList.add('hidden');
+}
+
+function renderSearchDropdown() {
+  const input = document.getElementById('globalSearchInput');
+  const resultsDiv = document.getElementById('globalSearchResults');
+  const query = input.value.trim();
+
+  resultsDiv.innerHTML = '';
+  if (!query) {
+    hideSearchDropdown();
+    return;
+  }
+
+  const matches = getSearchMatches(query, isPartialMatchEnabled);
+  const visibleMatches = matches.slice(0, SEARCH_RESULT_LIMIT);
+
+  if (visibleMatches.length === 0) {
+    resultsDiv.appendChild(el('div', {class: 'search-empty-state text-sm'}, 'Nenhum trecho encontrado.'));
+  } else {
+    visibleMatches.forEach(record => {
+      const item = el('button', {class: 'search-result-item', type: 'button', role: 'option'});
+      const title = el('div', {class: 'search-result-title'}, `${record.book} > ${record.chapter} > ${record.fileTitle}`);
+      const snippet = el('div', {class: 'search-result-snippet'});
+      snippet.innerHTML = getSearchSnippetHtml(record, query, isPartialMatchEnabled);
+      item.appendChild(title);
+      item.appendChild(snippet);
+      item.onclick = () => navigateToSearchResult(record);
+      resultsDiv.appendChild(item);
+    });
+
+    if (matches.length > SEARCH_RESULT_LIMIT) {
+      resultsDiv.appendChild(el('div', {class: 'search-empty-state text-sm'}, `Mostrando ${SEARCH_RESULT_LIMIT} de ${matches.length} resultados. Use a lupa para filtrar as colunas.`));
+    }
+  }
+
+  resultsDiv.classList.remove('hidden');
+}
+
+function setActiveSearch(query) {
+  const records = getSearchMatches(query, isPartialMatchEnabled);
+  activeSearch = {
+    query,
+    partialMatch: isPartialMatchEnabled,
+    records
+  };
+  return records;
+}
+
+function clearGlobalSearch() {
+  activeSearch = null;
+  removeSearchHighlights(document.getElementById('content'));
+  renderBooks();
+}
+
+function clearSelectionPanels() {
+  currentBook = null;
+  currentChapter = null;
+  currentFilePath = null;
+  document.getElementById('chapters').innerHTML = '';
+  document.getElementById('files').innerHTML = '';
+  document.getElementById('content').textContent = '';
+}
+
+function applyGlobalSearch() {
+  const input = document.getElementById('globalSearchInput');
+  const query = input.value.trim();
+
+  if (!query) {
+    clearGlobalSearch();
+    hideSearchDropdown();
+    return;
+  }
+
+  cancelCurrentSpeech();
+  const records = setActiveSearch(query);
+  renderBooks();
+  clearSelectionPanels();
+  document.getElementById('readerTitle').textContent = records.length ? 'Resultados da pesquisa' : 'Nenhum resultado';
+  document.getElementById('readerSub').textContent = records.length
+    ? `${records.length} trecho${records.length === 1 ? '' : 's'} encontrado${records.length === 1 ? '' : 's'}`
+    : `Sem trechos para "${query}"`;
+  hideSearchDropdown();
+}
+
+function navigateToSearchResult(record) {
+  const input = document.getElementById('globalSearchInput');
+  const query = input.value.trim();
+
+  if (query) {
+    setActiveSearch(query);
+    renderBooks();
+  }
+
+  hideSearchDropdown();
+  selectBook(record.book);
+  selectChapter(record.book, record.chapter);
+  loadFile(record.book, record.chapter, record.file);
+}
+
+function initializeSearchControls() {
+  const input = document.getElementById('globalSearchInput');
+  const submit = document.getElementById('globalSearchSubmit');
+  const partialToggle = document.getElementById('partialMatchToggle');
+  const resultsDiv = document.getElementById('globalSearchResults');
+
+  input.addEventListener('input', () => {
+    if (!input.value.trim()) {
+      clearGlobalSearch();
+      hideSearchDropdown();
+      return;
+    }
+    renderSearchDropdown();
+  });
+
+  input.addEventListener('focus', renderSearchDropdown);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      applyGlobalSearch();
+    } else if (event.key === 'Escape') {
+      hideSearchDropdown();
+    }
+  });
+
+  submit.addEventListener('click', applyGlobalSearch);
+
+  partialToggle.addEventListener('click', () => {
+    isPartialMatchEnabled = !isPartialMatchEnabled;
+    partialToggle.classList.toggle('is-active', isPartialMatchEnabled);
+    partialToggle.setAttribute('aria-pressed', String(isPartialMatchEnabled));
+    partialToggle.setAttribute('aria-label', isPartialMatchEnabled ? 'Desativar correspondência parcial' : 'Ativar correspondência parcial');
+    renderSearchDropdown();
+  });
+
+  document.addEventListener('click', event => {
+    if (!input.contains(event.target) && !resultsDiv.contains(event.target) && !submit.contains(event.target) && !partialToggle.contains(event.target)) {
+      hideSearchDropdown();
+    }
+  });
 }
 let currentBg = 1;
 
@@ -547,7 +1077,10 @@ function selectBook(book){
   // load chapters
   const chDiv = document.getElementById('chapters');
   chDiv.innerHTML='';
-  const chapters = Object.keys(bibleData[book]);
+  const chapters = getChaptersForBook(book);
+  if (chapters.length === 0) {
+    chDiv.appendChild(el('div', {class: 'p-2 text-sm search-filter-empty'}, 'Nenhum capítulo encontrado.'));
+  }
   chapters.forEach(ch=>{
     const r = el('div',{class:'p-2 rounded cursor-pointer chapter-item'}, ch);
     r.onclick = ()=> selectChapter(book, ch);
@@ -564,7 +1097,10 @@ function selectChapter(book, chapter){
   document.getElementById('readerSub').textContent = `${book} — ${chapter}`;
   const filesDiv = document.getElementById('files');
   filesDiv.innerHTML='';
-  const files = Object.keys(bibleData[book][chapter]);
+  const files = getFilesForChapter(book, chapter);
+  if (files.length === 0) {
+    filesDiv.appendChild(el('div', {class: 'p-2 text-sm search-filter-empty'}, 'Nenhum trecho encontrado.'));
+  }
   files.forEach(f=>{
     const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, f.replace(/\.txt$/i, ''));
     r.onclick = ()=> loadFile(book, chapter, f);
@@ -587,6 +1123,7 @@ function loadFile(book, chapter, filename){
   document.getElementById('readerTitle').textContent = filename.replace(/\.txt$/i, '');
   fixReferencesSameChapter();
   makeReferencesClickable();
+  applyActiveSearchHighlightToContent();
 }
 
  function loadSavedFile() {
@@ -1403,6 +1940,8 @@ async function main() {
       isSerifFont = true;
       applyFontPreference();
     }
+    buildSearchIndex();
+    initializeSearchControls();
     loadBooks();
     loadSavedFile(); // Carrega o último arquivo salvo
     showReadingGoalModal(); // Mostra a meta de leitura
