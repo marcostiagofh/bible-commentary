@@ -464,6 +464,15 @@
     opacity: 0.7;
   }
 
+  .reader-content-heading {
+    color: var(--text-color);
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 0.75rem;
+  }
+
   @media (max-width: 767px) {
     .site-search {
       justify-content: stretch;
@@ -522,7 +531,7 @@
     <!-- Área de Leitura (ocupa o resto do espaço) -->
     <main class="box flex-1 p-4 rounded-lg flex flex-col overflow-hidden">
       <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
-        <div>
+        <div id="readerHeading" class="hidden">
           <h2 id="readerTitle" class="text-2xl font-bold" style="color: var(--text-color);">Selecione um trecho</h2>
           <p id="readerSub" class="text-sm mt-1"></p>
         </div>
@@ -613,6 +622,63 @@ function el(tag, attrs={}, txt=''){
   return e;
 }
 
+function stripNumericPrefix(value) {
+  return String(value || '').replace(/^\d+\s*-\s*/, '').trim();
+}
+
+function isSameLabel(value, label) {
+  return normalizeSearchText(value).trim() === normalizeSearchText(label).trim();
+}
+
+function formatBookTitle(book) {
+  return stripNumericPrefix(book);
+}
+
+function formatChapterTitle(chapter) {
+  const title = stripNumericPrefix(chapter);
+  return isSameLabel(title, 'Introdução') ? 'Introdução do Livro' : title;
+}
+
+function formatFileTitle(filename) {
+  let title = stripNumericPrefix(filename).replace(/\.txt$/i, '').trim();
+
+  if (isSameLabel(title, 'Introdução')) {
+    return 'Introdução do Capítulo';
+  }
+
+  title = title.replace(/^Bíblia\b/i, 'Versículos');
+  title = title.replace(/^Comentário\b/i, 'Comentários');
+
+  return title;
+}
+
+function getReaderContentHeading(book, chapter, filename) {
+  const parts = [formatBookTitle(book), formatChapterTitle(chapter)].filter(Boolean);
+  const fileTitle = formatFileTitle(filename);
+  return `${parts.join(' ')}${fileTitle ? ` - ${fileTitle}` : ''}`.trim();
+}
+
+function prependReaderContentHeading() {
+  if (!currentBook || !currentChapter || !currentFilePath) return;
+
+  const contentEl = document.getElementById('content');
+  const heading = getReaderContentHeading(currentBook, currentChapter, currentFilePath);
+  if (!heading) return;
+
+  contentEl.innerHTML = `<span class="reader-content-heading">${escapeHtml(heading)}</span>\n${contentEl.innerHTML}`;
+}
+
+function renderCurrentFileContent() {
+  if (!currentBook || !currentChapter || !currentFilePath) return;
+
+  const contentEl = document.getElementById('content');
+  contentEl.textContent = bibleData[currentBook][currentChapter][currentFilePath];
+  fixReferencesSameChapter();
+  makeReferencesClickable();
+  prependReaderContentHeading();
+  applyActiveSearchHighlightToContent();
+}
+
 function normalizeSearchText(value) {
   return String(value || '')
     .normalize('NFD')
@@ -640,7 +706,7 @@ function buildSearchIndex() {
     Object.keys(bibleData[book]).forEach(chapter => {
       Object.keys(bibleData[book][chapter]).forEach(file => {
         const content = bibleData[book][chapter][file] || '';
-        const fileTitle = file.replace(/\.txt$/i, '');
+        const fileTitle = formatFileTitle(file);
         searchIndex.push({
           book,
           chapter,
@@ -648,7 +714,7 @@ function buildSearchIndex() {
           fileTitle,
           content,
           normalizedContent: normalizeSearchText(content),
-          searchText: normalizeSearchText(`${book} ${chapter} ${fileTitle} ${content}`)
+          searchText: normalizeSearchText(`${book} ${formatBookTitle(book)} ${chapter} ${formatChapterTitle(chapter)} ${fileTitle} ${content}`)
         });
       });
     });
@@ -896,7 +962,7 @@ function renderSearchDropdown() {
   } else {
     visibleMatches.forEach(record => {
       const item = el('button', {class: 'search-result-item', type: 'button', role: 'option'});
-      const title = el('div', {class: 'search-result-title'}, `${record.book} > ${record.chapter} > ${record.fileTitle}`);
+      const title = el('div', {class: 'search-result-title'}, `${formatBookTitle(record.book)} > ${formatChapterTitle(record.chapter)} > ${record.fileTitle}`);
       const snippet = el('div', {class: 'search-result-snippet'});
       snippet.innerHTML = getSearchSnippetHtml(record, query, isPartialMatchEnabled);
       item.appendChild(title);
@@ -1039,7 +1105,7 @@ function changeBackgroundSmoothly(newImage) {
 function selectBook(book){
   cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentBook = book;
-  document.getElementById('readerTitle').textContent = book;
+  document.getElementById('readerTitle').textContent = '';
   document.getElementById('readerSub').textContent = '';
 
   
@@ -1082,7 +1148,7 @@ function selectBook(book){
     chDiv.appendChild(el('div', {class: 'p-2 text-sm search-filter-empty'}, 'Nenhum capítulo encontrado.'));
   }
   chapters.forEach(ch=>{
-    const r = el('div',{class:'p-2 rounded cursor-pointer chapter-item'}, ch);
+    const r = el('div',{class:'p-2 rounded cursor-pointer chapter-item'}, formatChapterTitle(ch));
     r.onclick = ()=> selectChapter(book, ch);
     chDiv.appendChild(r);
   });
@@ -1094,7 +1160,8 @@ function selectBook(book){
 function selectChapter(book, chapter){
   cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentChapter = chapter;
-  document.getElementById('readerSub').textContent = `${book} — ${chapter}`;
+  document.getElementById('readerTitle').textContent = '';
+  document.getElementById('readerSub').textContent = '';
   const filesDiv = document.getElementById('files');
   filesDiv.innerHTML='';
   const files = getFilesForChapter(book, chapter);
@@ -1102,7 +1169,7 @@ function selectChapter(book, chapter){
     filesDiv.appendChild(el('div', {class: 'p-2 text-sm search-filter-empty'}, 'Nenhum trecho encontrado.'));
   }
   files.forEach(f=>{
-    const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, f.replace(/\.txt$/i, ''));
+    const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, formatFileTitle(f));
     r.onclick = ()=> loadFile(book, chapter, f);
     filesDiv.appendChild(r);
   });
@@ -1114,16 +1181,14 @@ function loadFile(book, chapter, filename){
   currentBook = book;
   currentChapter = chapter;
   currentFilePath = filename;
-  document.getElementById('content').textContent = bibleData[book][chapter][filename];
   // Salva o estado atual no localStorage
   localStorage.setItem('currentBook', book);
   localStorage.setItem('currentChapter', chapter);
   localStorage.setItem('currentFilePath', filename);
 
-  document.getElementById('readerTitle').textContent = filename.replace(/\.txt$/i, '');
-  fixReferencesSameChapter();
-  makeReferencesClickable();
-  applyActiveSearchHighlightToContent();
+  document.getElementById('readerTitle').textContent = '';
+  document.getElementById('readerSub').textContent = '';
+  renderCurrentFileContent();
 }
 
  function loadSavedFile() {
@@ -1316,7 +1381,11 @@ function speakTextQueue() {
     shiftHighlight = false; // 🔹 Reseta a flag no final da leitura
     document.getElementById('btnPlayPause').textContent = '▶️ Ler';
     // 🔹 limpa destaque, restaurando o texto original
-    document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
+    if (currentBook && currentChapter && currentFilePath) {
+      renderCurrentFileContent();
+    } else {
+      document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
+    }
     // Se o autoplay estiver ativo, toca o próximo trecho
     if (isAutoplayEnabled) {
         playNext();
@@ -1465,7 +1534,11 @@ function handleStop() {
   synth.cancel();
   currentUtterance = null;
   // 🔹 Restaura o texto original ao parar
-  document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
+  if (currentBook && currentChapter && currentFilePath) {
+    renderCurrentFileContent();
+  } else {
+    document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
+  }
   document.getElementById('btnPlayPause').textContent = '▶️ Ler';
 }
 
