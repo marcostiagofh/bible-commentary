@@ -672,8 +672,10 @@ function renderCurrentFileContent() {
   if (!currentBook || !currentChapter || !currentFilePath) return;
 
   const contentEl = document.getElementById('content');
-  contentEl.textContent = bibleData[currentBook][currentChapter][currentFilePath];
-  fixReferencesSameChapter();
+  let content = bibleData[currentBook][currentChapter][currentFilePath];
+  content = expandSameChapterReferences(content);
+  content = expandAbbreviatedReferences(content);
+  contentEl.textContent = formatTextForReaderParagraphs(content, 5);
   makeReferencesClickable();
   prependReaderContentHeading();
   applyActiveSearchHighlightToContent();
@@ -1267,6 +1269,7 @@ function playNext() {
     }
 }
 const synth = window.speechSynthesis;
+const SPEECH_LANGUAGE = 'pt-BR';
 let voices = [];
 // Variáveis para controlar o estado da fala
 let speechQueue = [];
@@ -1278,9 +1281,45 @@ let isPlaying = false;
 let originalTextForSpeech = '';
 // Função que popula o seletor de vozes
 let shiftHighlight = false; // 🔹 Novo: controla o deslocamento do destaque
+
+function isPortugueseVoice(voice) {
+  return String(voice.lang || '').toLowerCase().startsWith('pt');
+}
+
+function isMultilingualVoice(voice) {
+  const searchableVoiceInfo = `${voice.name || ''} ${voice.voiceURI || ''}`.toLowerCase();
+  return /multi[-\s]?lingual|multi[-\s]?language|multilingue|multilíngue/.test(searchableVoiceInfo);
+}
+
+function isNaturalVoice(voice) {
+  const searchableVoiceInfo = `${voice.name || ''} ${voice.voiceURI || ''}`.toLowerCase();
+  return searchableVoiceInfo.includes('natural') || searchableVoiceInfo.includes('neural');
+}
+
+function getVoicePriority(voice) {
+  if (isMultilingualVoice(voice) && isNaturalVoice(voice)) return 0;
+  if (isMultilingualVoice(voice)) return 1;
+  if (String(voice.lang || '').toLowerCase() === 'pt-br' && isNaturalVoice(voice)) return 2;
+  if (String(voice.lang || '').toLowerCase() === 'pt-br') return 3;
+  if (isPortugueseVoice(voice) && isNaturalVoice(voice)) return 4;
+  if (isPortugueseVoice(voice)) return 5;
+  return 6;
+}
+
+function getVoiceLabel(voice) {
+  const labels = [];
+  if (isMultilingualVoice(voice)) labels.push('Multilingual');
+  if (isNaturalVoice(voice)) labels.push('Natural');
+
+  return `${voice.name} (${voice.lang || 'sem idioma'})${labels.length ? ` - ${labels.join(', ')}` : ''}`;
+}
+
 function populateVoiceList() {
   const allVoices = synth.getVoices();
-  const newVoices = allVoices.filter(voice => voice.lang.toLowerCase().includes('pt-'));
+  const preferredVoices = allVoices
+    .filter(voice => isPortugueseVoice(voice) || isMultilingualVoice(voice))
+    .sort((a, b) => getVoicePriority(a) - getVoicePriority(b) || a.name.localeCompare(b.name));
+  const newVoices = preferredVoices.length ? preferredVoices : allVoices;
 
   const voiceSelect = document.getElementById('voiceSelect');
 
@@ -1298,10 +1337,10 @@ function populateVoiceList() {
 
   voiceSelect.innerHTML = ''; // limpar
 
-  // Itera sobre a lista já filtrada de vozes em português
+  // Itera sobre a lista filtrada de vozes em português e vozes multilíngues
   voices.forEach((voice, i) => {
     const option = document.createElement('option');
-    option.textContent = `${voice.name} (${voice.lang})`;
+    option.textContent = getVoiceLabel(voice);
     option.value = i; // O valor da opção é o índice na lista 'voices'
     voiceSelect.appendChild(option);
   });
@@ -1410,7 +1449,9 @@ function speakTextQueue() {
   currentUtterance = new SpeechSynthesisUtterance(textChunk);
   const selectedIndex = document.getElementById('voiceSelect').value;
   const speed = parseFloat(document.getElementById('speedSelect')?.value) || 0.9;
-  currentUtterance.voice = voices && voices[selectedIndex] ? voices[selectedIndex] : null;
+  const selectedVoice = voices && voices[selectedIndex] ? voices[selectedIndex] : null;
+  currentUtterance.voice = selectedVoice;
+  currentUtterance.lang = SPEECH_LANGUAGE;
   currentUtterance.rate = speed;
   currentUtterance.pitch = 1.0;
   currentUtterance.volume = 1.0;
@@ -1448,6 +1489,148 @@ function speakTextQueue() {
   isPlaying = true;
   isPausedByUser = false;
   document.getElementById('btnPlayPause').textContent = '⏸️ Pausar';
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function addProtectedPeriodPositions(text, regex, protectedPeriods) {
+  let match;
+  regex.lastIndex = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    const referenceText = match[0];
+    for (let i = 0; i < referenceText.length; i++) {
+      if (referenceText[i] === '.') {
+        protectedPeriods.add(match.index + i);
+      }
+    }
+
+    if (match[0].length === 0) regex.lastIndex++;
+  }
+}
+
+function getProtectedSpeechPeriodPositions(text) {
+  const protectedPeriods = new Set();
+  let parenthesesDepth = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char === '(') {
+      parenthesesDepth++;
+    }
+
+    if (char === '.' && parenthesesDepth > 0) {
+      protectedPeriods.add(i);
+    }
+
+    if (char === ')' && parenthesesDepth > 0) {
+      parenthesesDepth--;
+    }
+  }
+
+  const abbreviationsRegex = /\b(?:cap|cf|v|vv|vs|p|pp|ex|etc)\./gi;
+  addProtectedPeriodPositions(text, abbreviationsRegex, protectedPeriods);
+
+  const bookPattern = [...livros_biblia, ...abreviacoes]
+    .map(escapeRegExp)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+  const versePattern = String.raw`\d+\.\d+(?:(?:,|-)\s*\d+)*`;
+  const crossReferencePattern = `${versePattern}(?:;\\s*${versePattern})*`;
+  const bibleReferenceRegex = new RegExp(
+    String.raw`(?:\b(?:${bookPattern})\s+${crossReferencePattern}|\bcap\.\s*${crossReferencePattern}|\b${crossReferencePattern})`,
+    'gi'
+  );
+  addProtectedPeriodPositions(text, bibleReferenceRegex, protectedPeriods);
+
+  return protectedPeriods;
+}
+
+function trimSpeechPeriod(text, offset) {
+  const leadingSpaces = text.match(/^\s*/)[0].length;
+  const trailingSpaces = text.match(/\s*$/)[0].length;
+  const end = text.length - trailingSpaces;
+
+  return {
+    text: text.slice(leadingSpaces, end),
+    offset: offset + leadingSpaces
+  };
+}
+
+function getSpeechPeriods(text) {
+  const protectedPeriods = getProtectedSpeechPeriodPositions(text);
+  const periods = [];
+  let start = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const isBoundary =
+      char === '!' ||
+      char === '?' ||
+      (char === '.' && !protectedPeriods.has(i));
+
+    if (!isBoundary) continue;
+
+    let end = i + 1;
+    while (end < text.length && /["'”’)\]]/.test(text[end])) {
+      end++;
+    }
+
+    const period = trimSpeechPeriod(text.slice(start, end), start);
+    if (period.text) {
+      periods.push(period);
+    }
+
+    start = end;
+  }
+
+  const finalPeriod = trimSpeechPeriod(text.slice(start), start);
+  if (finalPeriod.text) {
+    periods.push(finalPeriod);
+  }
+
+  return periods;
+}
+
+function buildSpeechQueue(text, periodsPerChunk = 5) {
+  const periods = getSpeechPeriods(text);
+  const queue = [];
+
+  for (let i = 0; i < periods.length; i += periodsPerChunk) {
+    const group = periods.slice(i, i + periodsPerChunk);
+    const first = group[0];
+    const last = group[group.length - 1];
+    const end = last.offset + last.text.length;
+    const chunk = trimSpeechPeriod(text.slice(first.offset, end), first.offset);
+
+    if (chunk.text) {
+      queue.push(chunk);
+    }
+  }
+
+  return queue;
+}
+
+function formatTextForReaderParagraphs(text, periodsPerParagraph = 5) {
+  const periods = getSpeechPeriods(text);
+  const paragraphs = [];
+
+  for (let i = 0; i < periods.length; i += periodsPerParagraph) {
+    const group = periods.slice(i, i + periodsPerParagraph);
+    const first = group[0];
+    const last = group[group.length - 1];
+    const end = last.offset + last.text.length;
+    const paragraph = trimSpeechPeriod(text.slice(first.offset, end), first.offset);
+
+    if (paragraph.text) {
+      paragraphs.push(`  ${paragraph.text}`);
+    }
+  }
+
+  return paragraphs.join('\n\n');
 }
 
 // --- Play / Pause / Start handler (substitua seu handlePlayPause por esta) ---
@@ -1495,21 +1678,7 @@ function handlePlayPause() {
   isPausedByUser = false;
   isPlaying = false;
 
-  // 🔹 Lógica de divisão de texto atualizada para armazenar o offset
-  const sentencesRegex = /[^.!?\n]+[.!?\n]*|[\n]+/g;
-  let match;
-  const sentences = [];
-  while ((match = sentencesRegex.exec(originalTextForSpeech)) !== null) {
-      sentences.push({ text: match[0], offset: match.index });
-  }
-
-  for (let i = 0; i < sentences.length; i += 5) {
-      const group = sentences.slice(i, i + 5);
-      const combinedText = group.map(s => s.text).join('').trim();
-      if (combinedText) {
-          speechQueue.push({ text: combinedText, offset: group[0].offset });
-      }
-  }
+  speechQueue = buildSpeechQueue(originalTextForSpeech, 5);
 
   // iniciar
   speakTextQueue();
@@ -1605,9 +1774,8 @@ livros_biblia.forEach((nome, i) => {
 // Gera o regex a partir da lista de livros
 const verseRegex = new RegExp(`(?<!\\w)(((${[...livros_biblia, ...abreviacoes].join('|')})\\s(\\d+)\\.(\\d+(?:(?:,|-)\\d+)*)))`, 'g');
 
-function fixReferencesSameChapter() {
-  const contentEl = document.getElementById('content');
-  let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
+function expandSameChapterReferences(text) {
+  let expandedText = String(text || '');
   
   // 1. Expande as referências abreviadas como "cap. 1.23"
   if (currentBook) {
@@ -1617,20 +1785,25 @@ function fixReferencesSameChapter() {
     // Regex para encontrar "cap. 1.2", "cap. 1.2-3", "cap. 1.2,4", etc.
     const sameChapterRegex = /\b(?:cap\.|capítulo)\s+(\d+\.\d+(?:[,-]\d+)*)/gi;
     
-    html = html.replace(/\b(?:cap\.)\s/, 'capítulo ');
+    expandedText = expandedText.replace(/\b(?:cap\.)\s/, 'capítulo ');
     
-    html = html.replace(sameChapterRegex, (match, versePart) => {
+    expandedText = expandedText.replace(sameChapterRegex, (match, versePart) => {
       // Reconstrói a referência completa, ex: "Gênesis 1.23"
       // Esta string será então capturada pelo verseRegex no próximo passo.
       return `${bookNameOnly} ${versePart}`;
     });
   }
 
-  contentEl.innerHTML = html;
+  return expandedText;
 }
+
+function fixReferencesSameChapter() {
+  const contentEl = document.getElementById('content');
+  contentEl.textContent = expandSameChapterReferences(contentEl.textContent);
+}
+
 function expandAbbreviatedReferences(text) {
-    const contentEl = document.getElementById('content');
-    let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
+    let html = String(text || '');
     // Regex para encontrar uma referência completa (com livro) ou uma abreviada (só capítulo.versículo)
     // Grupo 1: Nome do livro (opcional)
     // Grupo 2: Referência de capítulo.versículo
@@ -1662,9 +1835,6 @@ function expandAbbreviatedReferences(text) {
 function makeReferencesClickable() {
   const contentEl = document.getElementById('content');
   let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
-
-  html = expandAbbreviatedReferences(html);
-  //console.log(html);
 
   // Substitui as referências por links clicáveis
   html = html.replace(verseRegex, (match) => {
