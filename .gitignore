@@ -1,5 +1,6 @@
 .env
 *.js
+*.zip
 script-resume.py
 script-merge.py
 baixa_biblia_tb.py
