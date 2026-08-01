@@ -2160,8 +2160,8 @@ function showReadingGoalModal() {
 
 async function main() {
   try {
-    const response = await fetch('./data.json');
-    if (!response.ok) throw new Error(`Failed to load data.json: ${response.statusText}`);
+    const response = await fetch('./data_resumido.json');
+    if (!response.ok) throw new Error(`Failed to load data_resumido.json: ${response.statusText}`);
     bibleData = await response.json();
     
     // Carrega os dados da bíblia para os versículos
@@ -2190,7 +2190,7 @@ async function main() {
     showReadingGoalModal(); // Mostra a meta de leitura
   } catch (e) {
     console.error(e);
-    alert('Erro fatal: Não foi possível carregar os dados do comentário. Execute o script de build (node build.js) e verifique se o arquivo data.json existe na pasta public.');
+    alert('Erro fatal: Não foi possível carregar os dados do comentário. Execute o script de build (node build.js) e verifique se o arquivo data_resumido.json existe na pasta public.');
   }
 }
 
