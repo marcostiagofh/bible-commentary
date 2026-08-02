@@ -1,15 +1,11 @@
 .env
 *.js
-*.zip
-script-resume.py
-script-merge.py
-baixa_biblia_tb.py
-biblia_extraida*/
-comentario_extraido*/
-unificado*/
+scripts/
+texto/
 node_modules/
 public/data_comentario.json
 public/data_resumido_backup.json
-roteiro_scripts.md
 _cache_wikisource_tb1917
 __pycache__
+melhorias site da biblia.txt
+github link.txt

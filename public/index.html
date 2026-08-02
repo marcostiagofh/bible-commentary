@@ -473,6 +473,67 @@
     margin-bottom: 0.75rem;
   }
 
+  .mode-selection {
+    align-items: center;
+    display: flex;
+    min-height: calc(100vh - 2rem);
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .mode-selection-inner {
+    max-width: 760px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .mode-selection-title {
+    color: var(--text-color);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+  }
+
+  .mode-selection-actions {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mode-option {
+    background-color: var(--box-bg);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 1.15rem;
+    font-weight: 700;
+    min-height: 120px;
+    padding: 1.5rem;
+    transition: border-color 0.2s, transform 0.2s, background-color 0.2s;
+  }
+
+  .mode-option:hover,
+  .mode-option:focus {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(96, 165, 250, 0.8);
+    outline: none;
+    transform: translateY(-1px);
+  }
+
+  .mode-option:disabled {
+    cursor: wait;
+    opacity: 0.65;
+    transform: none;
+  }
+
+  .mode-selection-error {
+    color: #FCA5A5;
+    margin-top: 1rem;
+    min-height: 1.5rem;
+  }
+
   @media (max-width: 767px) {
     .site-search {
       justify-content: stretch;
@@ -480,6 +541,10 @@
 
     .search-shell {
       width: 100%;
+    }
+
+    .mode-selection-actions {
+      grid-template-columns: 1fr;
     }
   }
 
@@ -500,73 +565,87 @@
     <div class="bg-image" id="bg1"></div>
     <div class="bg-image" id="bg2"></div>
   </div>
-  <header class="site-search">
-    <div class="search-shell">
-      <div class="search-control">
-        <input id="globalSearchInput" type="search" placeholder="Pesquisar nos comentários..." autocomplete="off" aria-label="Pesquisar nos comentários" />
-        <button id="partialMatchToggle" class="search-icon-button" type="button" title="Correspondência parcial" aria-label="Ativar correspondência parcial" aria-pressed="false">≈</button>
-        <button id="globalSearchSubmit" class="search-icon-button" type="button" title="Pesquisar" aria-label="Pesquisar">🔍</button>
-      </div>
-      <div id="globalSearchResults" class="hidden" role="listbox" aria-label="Resultados da pesquisa"></div>
-    </div>
-  </header>
-  <div class="app-layout flex flex-col md:flex-row gap-4">
-    <!-- Coluna de Livros -->
-    <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-      <h2 id="booksSectionTitle " class="text-xl font-bold mb-4" >Livros</h2>
-      <input id="filterBook" placeholder="filtrar livros..." class="w-full p-2 mb-3 rounded" style="background-color: var(--input-bg); color: var(--input-text);" />
-      <div id="books" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
-    </div>
-    <!-- Coluna de Capítulos -->
-    <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4" >Capítulos</h2>
-      <div id="chapters" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
-    </div>
-    <!-- Coluna de Trechos -->
-    <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-      <h2 class="text-xl font-bold mb-4" >Trechos de Versículos</h2>
-      <div id="files" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
-    </div>
 
-    <!-- Área de Leitura (ocupa o resto do espaço) -->
-    <main class="box flex-1 p-4 rounded-lg flex flex-col overflow-hidden">
-      <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
-        <div id="readerHeading" class="hidden">
-          <h2 id="readerTitle" class="text-2xl font-bold" style="color: var(--text-color);">Selecione um trecho</h2>
-          <p id="readerSub" class="text-sm mt-1"></p>
-        </div>
-        <div class="flex flex-wrap gap-2 items-center">
-          <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center" style="color:#FFFFFF">▶️ Ler</button>
-          <button id="btnStop" class="px-3 py-1 bg-red-600 rounded" style="color:#FFFFFF">⏹️ Parar</button>
-          <select id="speedSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm">
-            <option value="0.5">Lento (0.5x)</option>
-            <option value="0.75">0.75x</option>
-            <option value="0.9" selected>Padrão (0.9x)</option>
-            <option value="1">Normal (1x)</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">Rápido (1.5x)</option>
-            <option value="2">2x</option>
-          </select>
-          <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
-          <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
-        </div>
-        <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Tema</button>
-        <button id="btnDecreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A-</button>
-        <button id="btnIncreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A+</button>
-        <button id="btnToggleFont" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Fonte</button>
-        <button id="btnSpeedReader" class="px-3 py-1 bg-purple-600 rounded" style="color:#FFFFFF">⚡️ Leitura Rápida</button>
+  <section id="modeSelection" class="mode-selection" aria-labelledby="modeSelectionTitle">
+    <div class="mode-selection-inner">
+      <h1 id="modeSelectionTitle" class="mode-selection-title">Escolha o modo de leitura</h1>
+      <div class="mode-selection-actions">
+        <button class="mode-option" type="button" data-data-mode="bible">Bíblia somente</button>
+        <button class="mode-option" type="button" data-data-mode="commented">Bíblia com Comentários</button>
       </div>
-      <div class="prose max-w-none flex-1 overflow-y-auto">
-        <pre id="content" class="leading-6" style="font-size: var(--reader-font-size, 14px);"></pre>
+      <p id="modeSelectionError" class="mode-selection-error" role="alert"></p>
+    </div>
+  </section>
+
+  <div id="appShell" class="hidden">
+    <header class="site-search">
+      <div class="search-shell">
+        <div class="search-control">
+          <input id="globalSearchInput" type="search" placeholder="Pesquisar..." autocomplete="off" aria-label="Pesquisar" />
+          <button id="partialMatchToggle" class="search-icon-button" type="button" title="Correspondência parcial" aria-label="Ativar correspondência parcial" aria-pressed="false">≈</button>
+          <button id="globalSearchSubmit" class="search-icon-button" type="button" title="Pesquisar" aria-label="Pesquisar">🔍</button>
+        </div>
+        <div id="globalSearchResults" class="hidden" role="listbox" aria-label="Resultados da pesquisa"></div>
       </div>
-      <!-- Caixa para exibir versículos clicados -->
-      <div id="verse-display-container" class="box mt-4 p-4 rounded-lg hidden flex-col max-h-64">
-          <h3 id="verse-display-title" class="text-lg font-bold mb-2" style="color: var(--text-color);">Texto dos Versículos</h3>
-          <div class="flex-1 overflow-y-auto">
-              <pre id="verse-display" class="leading-6" style="color: var(--text-color); font-size: var(--reader-font-size, 14px);"></pre>
+    </header>
+    <div class="app-layout flex flex-col md:flex-row gap-4">
+      <!-- Coluna de Livros -->
+      <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
+        <h2 id="booksSectionTitle" class="text-xl font-bold mb-4" >Livros</h2>
+        <input id="filterBook" placeholder="filtrar livros..." class="w-full p-2 mb-3 rounded" style="background-color: var(--input-bg); color: var(--input-text);" />
+        <div id="books" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
+      </div>
+      <!-- Coluna de Capítulos -->
+      <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
+        <h2 class="text-xl font-bold mb-4" >Capítulos</h2>
+        <div id="chapters" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
+      </div>
+      <!-- Coluna de Trechos -->
+      <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
+        <h2 id="filesSectionTitle" class="text-xl font-bold mb-4" >Trechos de Versículos</h2>
+        <div id="files" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
+      </div>
+
+      <!-- Área de Leitura (ocupa o resto do espaço) -->
+      <main class="box flex-1 p-4 rounded-lg flex flex-col overflow-hidden">
+        <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
+          <div id="readerHeading" class="hidden">
+            <h2 id="readerTitle" class="text-2xl font-bold" style="color: var(--text-color);">Selecione um trecho</h2>
+            <p id="readerSub" class="text-sm mt-1"></p>
           </div>
-      </div>
-    </main>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center" style="color:#FFFFFF">▶️ Ler</button>
+            <button id="btnStop" class="px-3 py-1 bg-red-600 rounded" style="color:#FFFFFF">⏹️ Parar</button>
+            <select id="speedSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm">
+              <option value="0.5">Lento (0.5x)</option>
+              <option value="0.75">0.75x</option>
+              <option value="0.9" selected>Padrão (0.9x)</option>
+              <option value="1">Normal (1x)</option>
+              <option value="1.25">1.25x</option>
+              <option value="1.5">Rápido (1.5x)</option>
+              <option value="2">2x</option>
+            </select>
+            <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
+            <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
+          </div>
+          <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Tema</button>
+          <button id="btnDecreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A-</button>
+          <button id="btnIncreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A+</button>
+          <button id="btnToggleFont" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Fonte</button>
+          <button id="btnSpeedReader" class="px-3 py-1 bg-purple-600 rounded" style="color:#FFFFFF">⚡️ Leitura Rápida</button>
+        </div>
+        <div class="prose max-w-none flex-1 overflow-y-auto">
+          <pre id="content" class="leading-6" style="font-size: var(--reader-font-size, 14px);"></pre>
+        </div>
+        <!-- Caixa para exibir versículos clicados -->
+        <div id="verse-display-container" class="box mt-4 p-4 rounded-lg hidden flex-col max-h-64">
+            <h3 id="verse-display-title" class="text-lg font-bold mb-2" style="color: var(--text-color);">Texto dos Versículos</h3>
+            <div class="flex-1 overflow-y-auto">
+                <pre id="verse-display" class="leading-6" style="color: var(--text-color); font-size: var(--reader-font-size, 14px);"></pre>
+            </div>
+          </div>
+      </main>
+    </div>
   </div>
 
   <!-- Player do YouTube oculto -->
@@ -610,7 +689,26 @@ let isSerifFont = false; // Controle para a fonte do leitor
 let searchIndex = [];
 let activeSearch = null;
 let isPartialMatchEnabled = false;
+let selectedDataConfig = null;
 const SEARCH_RESULT_LIMIT = 30;
+const DATA_MODES = {
+  bible: {
+    file: 'data_biblia.json',
+    title: 'Bíblia somente',
+    searchPlaceholder: 'Pesquisar na Bíblia...',
+    searchAriaLabel: 'Pesquisar na Bíblia',
+    filesTitle: 'Versículos',
+    loadError: 'Não foi possível carregar os dados da Bíblia.'
+  },
+  commented: {
+    file: 'data_resumido.json',
+    title: 'Bíblia com Comentários',
+    searchPlaceholder: 'Pesquisar nos comentários...',
+    searchAriaLabel: 'Pesquisar nos comentários',
+    filesTitle: 'Trechos de Versículos',
+    loadError: 'Não foi possível carregar os dados da Bíblia com comentários.'
+  }
+};
 
 books = ['Gênesis','Êxodo','Levítico','Números','Deuteronômio','Josué','Juízes','Rute','1 Samuel','2 Samuel','1 Reis','2 Reis','1 Crônicas','2 Crônicas','Esdras','Neemias','Ester','Jó','Salmos','Provérbios','Eclesiastes','Cantares','Isaías','Jeremias','Lamentações','Ezequiel','Daniel','Oséias','Joel','Amós','Obadias','Jonas','Miquéias','Naum','Habacuque','Sofonias','Ageu','Zacarias','Malaquias','Mateus','Marcos','Lucas','João','Atos','Romanos','1 Coríntios','2 Coríntios','Gálatas','Efésios','Filipenses','Colossenses','1 Tessalonicenses','2 Tessalonicenses','1 Timóteo','2 Timóteo','Tito','Filemom','Hebreus','Tiago','1 Pedro','2 Pedro','1 João','2 João','3 João','Judas','Apocalipse']
 chapters = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22]
@@ -620,6 +718,49 @@ function el(tag, attrs={}, txt=''){
   for(const k in attrs) e.setAttribute(k, attrs[k]);
   if (txt) e.textContent = txt;
   return e;
+}
+
+function applySelectedDataLabels(config) {
+  const searchInput = document.getElementById('globalSearchInput');
+  searchInput.placeholder = config.searchPlaceholder;
+  searchInput.setAttribute('aria-label', config.searchAriaLabel);
+  document.getElementById('filesSectionTitle').textContent = config.filesTitle;
+  document.title = `${config.title} — Navegador Local`;
+}
+
+function setModeSelectionLoading(activeButton) {
+  document.querySelectorAll('[data-data-mode]').forEach(button => {
+    button.disabled = true;
+    button.textContent = button === activeButton ? 'Carregando...' : button.textContent;
+  });
+}
+
+function resetModeSelectionButtons() {
+  document.querySelector('[data-data-mode="bible"]').textContent = 'Bíblia somente';
+  document.querySelector('[data-data-mode="commented"]').textContent = 'Bíblia com Comentários';
+  document.querySelectorAll('[data-data-mode]').forEach(button => {
+    button.disabled = false;
+  });
+}
+
+function showAppAfterModeSelection() {
+  document.getElementById('modeSelection').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+}
+
+function initializeDataModeSelection() {
+  const errorEl = document.getElementById('modeSelectionError');
+
+  document.querySelectorAll('[data-data-mode]').forEach(button => {
+    button.addEventListener('click', () => {
+      const config = DATA_MODES[button.dataset.dataMode];
+      if (!config) return;
+
+      errorEl.textContent = '';
+      setModeSelectionLoading(button);
+      main(config);
+    });
+  });
 }
 
 function stripNumericPrefix(value) {
@@ -1197,7 +1338,14 @@ function loadFile(book, chapter, filename){
     const savedBook = localStorage.getItem('currentBook');
     const savedChapter = localStorage.getItem('currentChapter');
     const savedFilePath = localStorage.getItem('currentFilePath');
-    if (savedBook && savedChapter && savedFilePath) {
+    if (
+      savedBook &&
+      savedChapter &&
+      savedFilePath &&
+      bibleData[savedBook] &&
+      bibleData[savedBook][savedChapter] &&
+      bibleData[savedBook][savedChapter][savedFilePath]
+    ) {
       selectBook(savedBook);
       selectChapter(savedBook, savedChapter);
       loadFile(savedBook, savedChapter, savedFilePath);
@@ -2165,10 +2313,11 @@ function showReadingGoalModal() {
   };
 }
 
-async function main() {
+async function main(dataConfig) {
   try {
-    const response = await fetch('./data_resumido.json');
-    if (!response.ok) throw new Error(`Failed to load data_resumido.json: ${response.statusText}`);
+    selectedDataConfig = dataConfig;
+    const response = await fetch(`./${dataConfig.file}`);
+    if (!response.ok) throw new Error(`Failed to load ${dataConfig.file}: ${response.statusText}`);
     bibleData = await response.json();
     
     // Carrega os dados da bíblia para os versículos
@@ -2191,13 +2340,17 @@ async function main() {
       applyFontPreference();
     }
     buildSearchIndex();
+    applySelectedDataLabels(dataConfig);
     initializeSearchControls();
     loadBooks();
     loadSavedFile(); // Carrega o último arquivo salvo
+    showAppAfterModeSelection();
     showReadingGoalModal(); // Mostra a meta de leitura
   } catch (e) {
     console.error(e);
-    alert('Erro fatal: Não foi possível carregar os dados do comentário. Execute o script de build (node build.js) e verifique se o arquivo data_resumido.json existe na pasta public.');
+    selectedDataConfig = null;
+    resetModeSelectionButtons();
+    document.getElementById('modeSelectionError').textContent = `${dataConfig.loadError} Verifique se public/${dataConfig.file} existe.`;
   }
 }
 
@@ -2207,7 +2360,7 @@ tag.src = "https://www.youtube.com/iframe_api";
 const firstScriptTag = document.getElementsByTagName('script')[0];
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-main();
+initializeDataModeSelection();
 </script>
 
 </body>
