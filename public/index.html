@@ -495,23 +495,53 @@
     margin-bottom: 1.5rem;
   }
 
+  .language-selection-actions,
   .mode-selection-actions {
     display: grid;
     gap: 1rem;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .reading-mode-selection {
+    margin-top: 2rem;
+  }
+
+  .mode-selection-subtitle {
+    color: var(--text-color);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 1rem;
+  }
+
   .mode-option {
+    align-items: center;
     background-color: var(--box-bg);
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 8px;
     color: var(--text-color);
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
     font-size: 1.15rem;
     font-weight: 700;
+    justify-content: center;
     min-height: 120px;
     padding: 1.5rem;
+    text-align: center;
     transition: border-color 0.2s, transform 0.2s, background-color 0.2s;
+  }
+
+  .mode-option-flag {
+    display: block;
+    font-size: 2.4rem;
+    line-height: 1;
+    margin-bottom: 0.65rem;
+  }
+
+  .mode-option.is-selected {
+    background-color: rgba(96, 165, 250, 0.14);
+    border-color: rgba(96, 165, 250, 0.95);
   }
 
   .mode-option:hover,
@@ -543,6 +573,7 @@
       width: 100%;
     }
 
+    .language-selection-actions,
     .mode-selection-actions {
       grid-template-columns: 1fr;
     }
@@ -568,10 +599,23 @@
 
   <section id="modeSelection" class="mode-selection" aria-labelledby="modeSelectionTitle">
     <div class="mode-selection-inner">
-      <h1 id="modeSelectionTitle" class="mode-selection-title">Escolha o modo de leitura</h1>
-      <div class="mode-selection-actions">
-        <button class="mode-option" type="button" data-data-mode="bible">Bíblia somente</button>
-        <button class="mode-option" type="button" data-data-mode="commented">Bíblia com Comentários</button>
+      <h1 id="modeSelectionTitle" class="mode-selection-title">Escolha o idioma</h1>
+      <div class="language-selection-actions">
+        <button class="mode-option language-option" type="button" data-language="pt" aria-pressed="false">
+          <span class="mode-option-flag" aria-hidden="true">🇧🇷</span>
+          <span>Português</span>
+        </button>
+        <button class="mode-option language-option" type="button" data-language="en" aria-pressed="false">
+          <span class="mode-option-flag" aria-hidden="true">🇺🇸</span>
+          <span>English</span>
+        </button>
+      </div>
+      <div id="readingModeSelection" class="reading-mode-selection hidden">
+        <h2 id="readingModeTitle" class="mode-selection-subtitle">Escolha o modo de leitura</h2>
+        <div class="mode-selection-actions">
+          <button class="mode-option" type="button" data-data-mode="bible">Bíblia somente</button>
+          <button class="mode-option" type="button" data-data-mode="commented">Bíblia com Comentários</button>
+        </div>
       </div>
       <p id="modeSelectionError" class="mode-selection-error" role="alert"></p>
     </div>
@@ -597,7 +641,7 @@
       </div>
       <!-- Coluna de Capítulos -->
       <div class="box flex-shrink-0 md:flex-none md:w-64 p-4 rounded-lg flex flex-col">
-        <h2 class="text-xl font-bold mb-4" >Capítulos</h2>
+        <h2 id="chaptersSectionTitle" class="text-xl font-bold mb-4" >Capítulos</h2>
         <div id="chapters" class="space-y-1 overflow-y-auto h-32 md:h-auto md:flex-1"></div>
       </div>
       <!-- Coluna de Trechos -->
@@ -660,14 +704,14 @@
       <button id="sr-play-pause" class="px-4 py-1 bg-blue-600 rounded w-28">Play</button>
       <button id="sr-speed-up" class="px-3 py-1 bg-gray-600 rounded text-lg">+</button>
     </div>
-    <div class="text-sm">Velocidade: <span id="sr-wpm-display">250</span> PPM</div>
+    <div class="text-sm"><span id="sr-speed-label">Velocidade</span>: <span id="sr-wpm-display">250</span> PPM</div>
     <button id="sr-close" class="absolute top-2 right-3 text-2xl font-bold">&times;</button>
   </div>
 
   <!-- Janela Modal da Meta de Leitura (oculta por padrão) -->
   <div id="reading-goal-overlay" class="hidden"></div>
   <div id="reading-goal-modal" class="hidden text-center">
-    <h3 class="text-xl font-bold mb-4">Sua Meta de Leitura Anual</h3>
+    <h3 id="reading-goal-title" class="text-xl font-bold mb-4">Sua Meta de Leitura Anual</h3>
     <p id="reading-goal-text" class="mb-6 text-lg"></p>
     <button id="reading-goal-close" class="px-4 py-2 bg-blue-600 rounded text-white">Entendido</button>
   </div>
@@ -690,23 +734,116 @@ let searchIndex = [];
 let activeSearch = null;
 let isPartialMatchEnabled = false;
 let selectedDataConfig = null;
+let selectedLanguage = null;
+let speechLanguage = 'pt-BR';
 const SEARCH_RESULT_LIMIT = 30;
-const DATA_MODES = {
-  bible: {
-    file: 'data_biblia.json',
-    title: 'Bíblia somente',
-    searchPlaceholder: 'Pesquisar na Bíblia...',
-    searchAriaLabel: 'Pesquisar na Bíblia',
-    filesTitle: 'Versículos',
-    loadError: 'Não foi possível carregar os dados da Bíblia.'
+const WHOLE_CHAPTER_FILE = '__whole_chapter__';
+const LANGUAGE_DATA_MODES = {
+  pt: {
+    htmlLang: 'pt-BR',
+    loadingLabel: 'Carregando...',
+    modeTitle: 'Escolha o modo de leitura',
+    ui: {
+      booksTitle: 'Livros',
+      chaptersTitle: 'Capítulos',
+      bookFilterPlaceholder: 'filtrar livros...',
+      searchResultsAriaLabel: 'Resultados da pesquisa',
+      play: 'Ler',
+      pause: 'Pausar',
+      resume: 'Retomar',
+      stop: 'Parar',
+      speedOptions: {
+        slow: 'Lento (0.5x)',
+        default: 'Padrão (0.9x)',
+        fast: 'Rápido (1.5x)'
+      },
+      theme: 'Tema',
+      font: 'Fonte',
+      speedReader: 'Leitura Rápida',
+      speed: 'Velocidade',
+      readingGoalTitle: 'Sua Meta de Leitura Anual',
+      readingGoalText: (dayOfYear, targetBook, targetChapter) => `Estamos no <strong>${dayOfYear}°</strong> dia do ano. Para terminar de ler toda a bíblia ainda este ano, você precisa ler até <strong>${targetBook} capítulo ${targetChapter}</strong>.`,
+      readingGoalClose: 'Entendido'
+    },
+    modes: {
+      bible: {
+        file: 'data_biblia.json',
+        verseDataFile: 'data_biblia.json',
+        speechLanguage: 'pt-BR',
+        wholeChapterMode: true,
+        wholeChapterLabel: (end) => `Versículos 1 até ${end}`,
+        selectionLabel: 'Bíblia somente',
+        title: 'Bíblia somente',
+        searchPlaceholder: 'Pesquisar na Bíblia...',
+        searchAriaLabel: 'Pesquisar na Bíblia',
+        filesTitle: 'Versículos',
+        loadError: 'Não foi possível carregar os dados da Bíblia.'
+      },
+      commented: {
+        file: 'data_resumido.json',
+        verseDataFile: 'data_biblia.json',
+        speechLanguage: 'pt-BR',
+        selectionLabel: 'Bíblia com Comentários',
+        title: 'Bíblia com Comentários',
+        searchPlaceholder: 'Pesquisar nos comentários...',
+        searchAriaLabel: 'Pesquisar nos comentários',
+        filesTitle: 'Trechos de Versículos',
+        loadError: 'Não foi possível carregar os dados da Bíblia com comentários.'
+      }
+    }
   },
-  commented: {
-    file: 'data_resumido.json',
-    title: 'Bíblia com Comentários',
-    searchPlaceholder: 'Pesquisar nos comentários...',
-    searchAriaLabel: 'Pesquisar nos comentários',
-    filesTitle: 'Trechos de Versículos',
-    loadError: 'Não foi possível carregar os dados da Bíblia com comentários.'
+  en: {
+    htmlLang: 'en-US',
+    loadingLabel: 'Loading...',
+    modeTitle: 'Choose reading mode',
+    ui: {
+      booksTitle: 'Books',
+      chaptersTitle: 'Chapters',
+      bookFilterPlaceholder: 'filter books...',
+      searchResultsAriaLabel: 'Search results',
+      play: 'Read',
+      pause: 'Pause',
+      resume: 'Resume',
+      stop: 'Stop',
+      speedOptions: {
+        slow: 'Slow (0.5x)',
+        default: 'Default (0.9x)',
+        fast: 'Fast (1.5x)'
+      },
+      theme: 'Theme',
+      font: 'Font',
+      speedReader: 'Speed Reading',
+      speed: 'Speed',
+      readingGoalTitle: 'Your Annual Reading Goal',
+      readingGoalText: (dayOfYear, targetBook, targetChapter) => `We are on day <strong>${dayOfYear}</strong> of the year. To finish reading the whole Bible this year, you need to read through <strong>${targetBook} chapter ${targetChapter}</strong>.`,
+      readingGoalClose: 'Got it'
+    },
+    modes: {
+      bible: {
+        file: 'data_biblia_kjvpce.json',
+        verseDataFile: 'data_biblia_kjvpce.json',
+        speechLanguage: 'en-US',
+        wholeChapterMode: true,
+        wholeChapterLabel: (end) => `Verses 1 to ${end}`,
+        selectionLabel: 'Bible only',
+        title: 'Bible only',
+        searchPlaceholder: 'Search the Bible...',
+        searchAriaLabel: 'Search the Bible',
+        filesTitle: 'Verses',
+        loadError: 'Could not load Bible data.'
+      },
+      commented: {
+        file: 'data_ingles.json',
+        verseDataFile: 'data_biblia_kjvpce.json',
+        speechLanguage: 'en-US',
+        selectionLabel: 'Bible with Commentary',
+        title: 'Bible with Commentary',
+        searchPlaceholder: 'Search commentary...',
+        searchAriaLabel: 'Search commentary',
+        filesTitle: 'Verse Passages',
+        loadError: 'Could not load Bible commentary data.'
+      }
+    }
   }
 };
 
@@ -726,19 +863,62 @@ function applySelectedDataLabels(config) {
   searchInput.setAttribute('aria-label', config.searchAriaLabel);
   document.getElementById('filesSectionTitle').textContent = config.filesTitle;
   document.title = `${config.title} — Navegador Local`;
+  speechLanguage = config.speechLanguage;
+  populateVoiceList();
+  applyUiLabels();
+}
+
+function getUiLabels() {
+  return LANGUAGE_DATA_MODES[selectedLanguage]?.ui || LANGUAGE_DATA_MODES.pt.ui;
+}
+
+function setPlayPauseButtonLabel(state = 'play') {
+  const labels = getUiLabels();
+  const textByState = {
+    play: `▶️ ${labels.play}`,
+    pause: `⏸️ ${labels.pause}`,
+    resume: `▶️ ${labels.resume}`
+  };
+  document.getElementById('btnPlayPause').textContent = textByState[state] || textByState.play;
+}
+
+function applyUiLabels() {
+  const labels = getUiLabels();
+  document.getElementById('booksSectionTitle').textContent = labels.booksTitle;
+  document.getElementById('chaptersSectionTitle').textContent = labels.chaptersTitle;
+  document.getElementById('filterBook').placeholder = labels.bookFilterPlaceholder;
+  document.getElementById('globalSearchResults').setAttribute('aria-label', labels.searchResultsAriaLabel);
+  setPlayPauseButtonLabel('play');
+  document.getElementById('btnStop').textContent = `⏹️ ${labels.stop}`;
+  document.querySelector('#speedSelect option[value="0.5"]').textContent = labels.speedOptions.slow;
+  document.querySelector('#speedSelect option[value="0.9"]').textContent = labels.speedOptions.default;
+  document.querySelector('#speedSelect option[value="1.5"]').textContent = labels.speedOptions.fast;
+  document.getElementById('themeToggle').textContent = labels.theme;
+  document.getElementById('btnToggleFont').textContent = labels.font;
+  document.getElementById('btnSpeedReader').textContent = `⚡️ ${labels.speedReader}`;
+  document.getElementById('sr-speed-label').textContent = labels.speed;
+  document.getElementById('reading-goal-title').textContent = labels.readingGoalTitle;
+  document.getElementById('reading-goal-close').textContent = labels.readingGoalClose;
 }
 
 function setModeSelectionLoading(activeButton) {
   document.querySelectorAll('[data-data-mode]').forEach(button => {
     button.disabled = true;
-    button.textContent = button === activeButton ? 'Carregando...' : button.textContent;
+    button.textContent = button === activeButton
+      ? LANGUAGE_DATA_MODES[selectedLanguage].loadingLabel
+      : button.textContent;
+  });
+  document.querySelectorAll('[data-language]').forEach(button => {
+    button.disabled = true;
   });
 }
 
 function resetModeSelectionButtons() {
-  document.querySelector('[data-data-mode="bible"]').textContent = 'Bíblia somente';
-  document.querySelector('[data-data-mode="commented"]').textContent = 'Bíblia com Comentários';
+  updateReadingModeOptions();
   document.querySelectorAll('[data-data-mode]').forEach(button => {
+    button.disabled = false;
+  });
+  document.querySelectorAll('[data-language]').forEach(button => {
     button.disabled = false;
   });
 }
@@ -751,9 +931,19 @@ function showAppAfterModeSelection() {
 function initializeDataModeSelection() {
   const errorEl = document.getElementById('modeSelectionError');
 
+  document.querySelectorAll('[data-language]').forEach(button => {
+    button.addEventListener('click', () => {
+      selectedLanguage = button.dataset.language;
+      errorEl.textContent = '';
+      updateLanguageSelectionState();
+      updateReadingModeOptions();
+      document.getElementById('readingModeSelection').classList.remove('hidden');
+    });
+  });
+
   document.querySelectorAll('[data-data-mode]').forEach(button => {
     button.addEventListener('click', () => {
-      const config = DATA_MODES[button.dataset.dataMode];
+      const config = LANGUAGE_DATA_MODES[selectedLanguage]?.modes[button.dataset.dataMode];
       if (!config) return;
 
       errorEl.textContent = '';
@@ -761,6 +951,24 @@ function initializeDataModeSelection() {
       main(config);
     });
   });
+}
+
+function updateLanguageSelectionState() {
+  document.querySelectorAll('[data-language]').forEach(button => {
+    const isSelected = button.dataset.language === selectedLanguage;
+    button.classList.toggle('is-selected', isSelected);
+    button.setAttribute('aria-pressed', String(isSelected));
+  });
+}
+
+function updateReadingModeOptions() {
+  const languageConfig = LANGUAGE_DATA_MODES[selectedLanguage];
+  if (!languageConfig) return;
+
+  document.documentElement.lang = languageConfig.htmlLang;
+  document.getElementById('readingModeTitle').textContent = languageConfig.modeTitle;
+  document.querySelector('[data-data-mode="bible"]').textContent = languageConfig.modes.bible.selectionLabel;
+  document.querySelector('[data-data-mode="commented"]').textContent = languageConfig.modes.commented.selectionLabel;
 }
 
 function stripNumericPrefix(value) {
@@ -781,6 +989,10 @@ function formatChapterTitle(chapter) {
 }
 
 function formatFileTitle(filename) {
+  if (filename === WHOLE_CHAPTER_FILE && currentBook && currentChapter) {
+    return getWholeChapterLabel(currentBook, currentChapter);
+  }
+
   let title = stripNumericPrefix(filename).replace(/\.txt$/i, '').trim();
 
   if (isSameLabel(title, 'Introdução')) {
@@ -791,6 +1003,37 @@ function formatFileTitle(filename) {
   title = title.replace(/^Comentário\b/i, 'Comentários');
 
   return title;
+}
+
+function isWholeChapterMode() {
+  return Boolean(selectedDataConfig?.wholeChapterMode);
+}
+
+function getSortedVerseFiles(book, chapter) {
+  return Object.keys((bibleData[book] || {})[chapter] || {})
+    .filter(file => /\.txt$/i.test(file))
+    .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+}
+
+function getWholeChapterEndVerse(book, chapter) {
+  const files = getSortedVerseFiles(book, chapter);
+  const lastFile = files[files.length - 1] || '';
+  return parseInt(lastFile, 10) || files.length;
+}
+
+function getWholeChapterLabel(book, chapter) {
+  const endVerse = getWholeChapterEndVerse(book, chapter);
+  return selectedDataConfig?.wholeChapterLabel?.(endVerse) || `Versículos 1 até ${endVerse}`;
+}
+
+function getWholeChapterContent(book, chapter) {
+  return getSortedVerseFiles(book, chapter)
+    .map(file => {
+      const verseNumber = parseInt(file, 10);
+      const verseText = bibleData[book][chapter][file] || '';
+      return `${verseNumber} ${verseText}`.trim();
+    })
+    .join('\n');
 }
 
 function getReaderContentHeading(book, chapter, filename) {
@@ -813,10 +1056,14 @@ function renderCurrentFileContent() {
   if (!currentBook || !currentChapter || !currentFilePath) return;
 
   const contentEl = document.getElementById('content');
-  let content = bibleData[currentBook][currentChapter][currentFilePath];
+  let content = isWholeChapterMode()
+    ? getWholeChapterContent(currentBook, currentChapter)
+    : bibleData[currentBook][currentChapter][currentFilePath];
   content = expandSameChapterReferences(content);
   content = expandAbbreviatedReferences(content);
-  contentEl.textContent = formatTextForReaderParagraphs(content, 5);
+  contentEl.textContent = isWholeChapterMode()
+    ? content
+    : formatTextForReaderParagraphs(content, 5);
   makeReferencesClickable();
   prependReaderContentHeading();
   applyActiveSearchHighlightToContent();
@@ -1049,6 +1296,10 @@ function getChaptersForBook(book) {
 }
 
 function getFilesForChapter(book, chapter) {
+  if (isWholeChapterMode()) {
+    return getSortedVerseFiles(book, chapter).length ? [WHOLE_CHAPTER_FILE] : [];
+  }
+
   return Object.keys((bibleData[book] || {})[chapter] || {}).filter(file => hasSearchMatchForFile(book, chapter, file));
 }
 
@@ -1312,7 +1563,7 @@ function selectChapter(book, chapter){
     filesDiv.appendChild(el('div', {class: 'p-2 text-sm search-filter-empty'}, 'Nenhum trecho encontrado.'));
   }
   files.forEach(f=>{
-    const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, formatFileTitle(f));
+    const r = el('div',{class:'p-2 rounded cursor-pointer file-item'}, f === WHOLE_CHAPTER_FILE ? getWholeChapterLabel(book, chapter) : formatFileTitle(f));
     r.onclick = ()=> loadFile(book, chapter, f);
     filesDiv.appendChild(r);
   });
@@ -1323,11 +1574,11 @@ function loadFile(book, chapter, filename){
   cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentBook = book;
   currentChapter = chapter;
-  currentFilePath = filename;
+  currentFilePath = isWholeChapterMode() ? WHOLE_CHAPTER_FILE : filename;
   // Salva o estado atual no localStorage
   localStorage.setItem('currentBook', book);
   localStorage.setItem('currentChapter', chapter);
-  localStorage.setItem('currentFilePath', filename);
+  localStorage.setItem('currentFilePath', currentFilePath);
 
   document.getElementById('readerTitle').textContent = '';
   document.getElementById('readerSub').textContent = '';
@@ -1344,7 +1595,7 @@ function loadFile(book, chapter, filename){
       savedFilePath &&
       bibleData[savedBook] &&
       bibleData[savedBook][savedChapter] &&
-      bibleData[savedBook][savedChapter][savedFilePath]
+      (isWholeChapterMode() || bibleData[savedBook][savedChapter][savedFilePath])
     ) {
       selectBook(savedBook);
       selectChapter(savedBook, savedChapter);
@@ -1358,6 +1609,23 @@ function findNextItem() {
   const booksList = Object.keys(bibleData);
   const chaptersList = Object.keys(bibleData[currentBook]);
   const filesList = Object.keys(bibleData[currentBook][currentChapter]);
+
+  if (isWholeChapterMode()) {
+    const currentChapterIndex = chaptersList.indexOf(currentChapter);
+    if (currentChapterIndex < chaptersList.length - 1) {
+      const nextChapter = chaptersList[currentChapterIndex + 1];
+      return { book: currentBook, chapter: nextChapter, file: WHOLE_CHAPTER_FILE };
+    }
+
+    const currentBookIndex = booksList.indexOf(currentBook);
+    if (currentBookIndex < booksList.length - 1) {
+      const nextBook = booksList[currentBookIndex + 1];
+      const nextChapter = Object.keys(bibleData[nextBook])[0];
+      return { book: nextBook, chapter: nextChapter, file: WHOLE_CHAPTER_FILE };
+    }
+
+    return null;
+  }
 
   const currentFileIndex = filesList.indexOf(currentFilePath);
 
@@ -1404,7 +1672,7 @@ function cancelCurrentSpeech() {
   synth.cancel();
   isPlaying = false;
   isPausedByUser = false;
-  document.getElementById('btnPlayPause').textContent = '▶️ Ler';
+  setPlayPauseButtonLabel('play');
 }
 
 function playNext() {
@@ -1417,7 +1685,6 @@ function playNext() {
     }
 }
 const synth = window.speechSynthesis;
-const SPEECH_LANGUAGE = 'pt-BR';
 let voices = [];
 // Variáveis para controlar o estado da fala
 let speechQueue = [];
@@ -1430,8 +1697,12 @@ let originalTextForSpeech = '';
 // Função que popula o seletor de vozes
 let shiftHighlight = false; // 🔹 Novo: controla o deslocamento do destaque
 
-function isPortugueseVoice(voice) {
-  return String(voice.lang || '').toLowerCase().startsWith('pt');
+function getSpeechLanguagePrefix() {
+  return speechLanguage.split('-')[0].toLowerCase();
+}
+
+function isPreferredLanguageVoice(voice) {
+  return String(voice.lang || '').toLowerCase().startsWith(getSpeechLanguagePrefix());
 }
 
 function isMultilingualVoice(voice) {
@@ -1445,12 +1716,15 @@ function isNaturalVoice(voice) {
 }
 
 function getVoicePriority(voice) {
+  const voiceLang = String(voice.lang || '').toLowerCase();
+  const targetLang = speechLanguage.toLowerCase();
+
   if (isMultilingualVoice(voice) && isNaturalVoice(voice)) return 0;
   if (isMultilingualVoice(voice)) return 1;
-  if (String(voice.lang || '').toLowerCase() === 'pt-br' && isNaturalVoice(voice)) return 2;
-  if (String(voice.lang || '').toLowerCase() === 'pt-br') return 3;
-  if (isPortugueseVoice(voice) && isNaturalVoice(voice)) return 4;
-  if (isPortugueseVoice(voice)) return 5;
+  if (voiceLang === targetLang && isNaturalVoice(voice)) return 2;
+  if (voiceLang === targetLang) return 3;
+  if (isPreferredLanguageVoice(voice) && isNaturalVoice(voice)) return 4;
+  if (isPreferredLanguageVoice(voice)) return 5;
   return 6;
 }
 
@@ -1465,7 +1739,7 @@ function getVoiceLabel(voice) {
 function populateVoiceList() {
   const allVoices = synth.getVoices();
   const preferredVoices = allVoices
-    .filter(voice => isPortugueseVoice(voice) || isMultilingualVoice(voice))
+    .filter(voice => isPreferredLanguageVoice(voice) || isMultilingualVoice(voice))
     .sort((a, b) => getVoicePriority(a) - getVoicePriority(b) || a.name.localeCompare(b.name));
   const newVoices = preferredVoices.length ? preferredVoices : allVoices;
 
@@ -1566,7 +1840,7 @@ function speakTextQueue() {
     currentUtterance = null;
     
     shiftHighlight = false; // 🔹 Reseta a flag no final da leitura
-    document.getElementById('btnPlayPause').textContent = '▶️ Ler';
+    setPlayPauseButtonLabel('play');
     // 🔹 limpa destaque, restaurando o texto original
     if (currentBook && currentChapter && currentFilePath) {
       renderCurrentFileContent();
@@ -1599,7 +1873,7 @@ function speakTextQueue() {
   const speed = parseFloat(document.getElementById('speedSelect')?.value) || 0.9;
   const selectedVoice = voices && voices[selectedIndex] ? voices[selectedIndex] : null;
   currentUtterance.voice = selectedVoice;
-  currentUtterance.lang = SPEECH_LANGUAGE;
+  currentUtterance.lang = speechLanguage;
   currentUtterance.rate = speed;
   currentUtterance.pitch = 1.0;
   currentUtterance.volume = 1.0;
@@ -1636,7 +1910,7 @@ function speakTextQueue() {
   synth.speak(currentUtterance);
   isPlaying = true;
   isPausedByUser = false;
-  document.getElementById('btnPlayPause').textContent = '⏸️ Pausar';
+  setPlayPauseButtonLabel('pause');
 }
 
 function escapeRegExp(value) {
@@ -1783,7 +2057,6 @@ function formatTextForReaderParagraphs(text, periodsPerParagraph = 5) {
 
 // --- Play / Pause / Start handler (substitua seu handlePlayPause por esta) ---
 function handlePlayPause() {
-  const btn = document.getElementById('btnPlayPause');
   const contentEl = document.getElementById('content');
 
   // Se atualmente está pausado (estado interno), queremos retomar: reinicia speakTextQueue
@@ -1808,7 +2081,7 @@ function handlePlayPause() {
     // Não decrementamos o currentChunkIndex. Ao retomar, o mesmo chunk será relido.
 
     // Deixamos currentChunkIndex intacto (para que, ao retomar, o chunk atual seja relido do início)
-    btn.textContent = '▶️ Retomar';
+    setPlayPauseButtonLabel('resume');
     return;
   }
 
@@ -1856,7 +2129,7 @@ function handleStop() {
   } else {
     document.getElementById('content').innerHTML = escapeHtml(originalTextForSpeech);
   }
-  document.getElementById('btnPlayPause').textContent = '▶️ Ler';
+  setPlayPauseButtonLabel('play');
 }
 
 // Eventos dos botões
@@ -2286,23 +2559,33 @@ function showReadingGoalModal() {
 
   // 3. Encontrar o livro e capítulo correspondente
   let cumulativeChapters = 0;
+  let targetBook = books[books.length - 1];
+  let targetBookIndex = books.length - 1;
+  let targetChapter = chapters[chapters.length - 1];
 
   for (let i = 0; i < books.length; i++) {
     const chaptersInBook = chapters[i];
     if (cumulativeChapters + chaptersInBook >= totalChaptersToRead) {
       targetBook = books[i];
+      targetBookIndex = i;
       targetChapter = totalChaptersToRead - cumulativeChapters;
       break;
     }
     cumulativeChapters += chaptersInBook;
     if(cumulativeChapters == 1189){
       targetBook = books[i];
+      targetBookIndex = i;
       targetChapter = chaptersInBook;
     }
   }
 
   // 4. Montar e exibir a mensagem
-  textElement.innerHTML = `Estamos no <strong>${dayOfYear}°</strong> dia do ano. Para terminar de ler toda a bíblia ainda este ano, você precisa ler até <strong>${targetBook} capítulo ${targetChapter}</strong>.`;
+  const labels = getUiLabels();
+  const targetBookKey = Object.keys(bibleData)[targetBookIndex] || targetBook;
+  const targetBookTitle = formatBookTitle(targetBookKey);
+  document.getElementById('reading-goal-title').textContent = labels.readingGoalTitle;
+  closeButton.textContent = labels.readingGoalClose;
+  textElement.innerHTML = labels.readingGoalText(dayOfYear, targetBookTitle, targetChapter);
   overlay.classList.remove('hidden');
   modal.classList.remove('hidden');
 
@@ -2322,14 +2605,14 @@ async function main(dataConfig) {
     
     // Carrega os dados da bíblia para os versículos
     try {
-        const bibleResponse = await fetch('./data_biblia.json');
+        const bibleResponse = await fetch(`./${dataConfig.verseDataFile}`);
         if (bibleResponse.ok) {
             bibleVerseData = await bibleResponse.json();
         } else {
-            console.warn('data_biblia.json não encontrado. A funcionalidade de clique em versículos estará desativada.');
+            console.warn(`${dataConfig.verseDataFile} não encontrado. A funcionalidade de clique em versículos estará desativada.`);
         }
     } catch (e) {
-        console.warn('Erro ao carregar data_biblia.json:', e);
+        console.warn(`Erro ao carregar ${dataConfig.verseDataFile}:`, e);
     }
     applyInitialTheme();
     applyInitialFontSize();
