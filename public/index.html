@@ -495,7 +495,12 @@
     margin-bottom: 1.5rem;
   }
 
-  .language-selection-actions,
+  .language-selection-actions {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .mode-selection-actions {
     display: grid;
     gap: 1rem;
@@ -564,6 +569,30 @@
     min-height: 1.5rem;
   }
 
+  .selection-notices,
+  .app-legal-notices {
+    color: var(--text-color);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    opacity: 0.72;
+  }
+
+  .selection-notices {
+    margin-top: 1.5rem;
+    text-align: left;
+  }
+
+  .selection-notices p,
+  .app-legal-notices p {
+    margin: 0.35rem 0 0;
+  }
+
+  .app-legal-notices {
+    margin: 0.75rem auto 0;
+    max-width: 1180px;
+    padding: 0 0.25rem;
+  }
+
   @media (max-width: 767px) {
     .site-search {
       justify-content: stretch;
@@ -609,6 +638,10 @@
           <span class="mode-option-flag" aria-hidden="true">🇺🇸</span>
           <span>English</span>
         </button>
+        <button class="mode-option language-option" type="button" data-language="jp" aria-pressed="false">
+          <span class="mode-option-flag" aria-hidden="true">🇯🇵</span>
+          <span>日本語</span>
+        </button>
       </div>
       <div id="readingModeSelection" class="reading-mode-selection hidden">
         <h2 id="readingModeTitle" class="mode-selection-subtitle">Escolha o modo de leitura</h2>
@@ -618,6 +651,7 @@
         </div>
       </div>
       <p id="modeSelectionError" class="mode-selection-error" role="alert"></p>
+      <footer id="modeSelectionNotices" class="selection-notices hidden" aria-live="polite"></footer>
     </div>
   </section>
 
@@ -690,6 +724,7 @@
           </div>
       </main>
     </div>
+    <footer id="appLegalNotices" class="app-legal-notices hidden"></footer>
   </div>
 
   <!-- Player do YouTube oculto -->
@@ -735,6 +770,7 @@ let activeSearch = null;
 let isPartialMatchEnabled = false;
 let selectedDataConfig = null;
 let selectedLanguage = null;
+let selectedDataMode = null;
 let speechLanguage = 'pt-BR';
 const SEARCH_RESULT_LIMIT = 30;
 const WHOLE_CHAPTER_FILE = '__whole_chapter__';
@@ -764,6 +800,10 @@ const LANGUAGE_DATA_MODES = {
       readingGoalTitle: 'Sua Meta de Leitura Anual',
       readingGoalText: (dayOfYear, targetBook, targetChapter) => `Estamos no <strong>${dayOfYear}°</strong> dia do ano. Para terminar de ler toda a bíblia ainda este ano, você precisa ler até <strong>${targetBook} capítulo ${targetChapter}</strong>.`,
       readingGoalClose: 'Entendido'
+    },
+    notices: {
+      bible: 'Tradução Brasileira 1917 de domínio público',
+      commentary: ''
     },
     modes: {
       bible: {
@@ -818,6 +858,10 @@ const LANGUAGE_DATA_MODES = {
       readingGoalText: (dayOfYear, targetBook, targetChapter) => `We are on day <strong>${dayOfYear}</strong> of the year. To finish reading the whole Bible this year, you need to read through <strong>${targetBook} chapter ${targetChapter}</strong>.`,
       readingGoalClose: 'Got it'
     },
+    notices: {
+      bible: 'English Bible text: King James Version, Pure Cambridge Edition. Digital source: CrossWire KJVPCE module, listed by CrossWire as Public Domain. This project does not redistribute CrossWire software, Strong’s data, morphology, or editorial annotations. Local restrictions may apply to the Authorized/King James Version in the United Kingdom.',
+      commentary: 'Commentary source: Matthew Henry’s Complete Commentary on the Whole Bible, public domain. Digital source: CrossWire SWORD MHC module, prepared from the Christian Classics Ethereal Library / CCEL.'
+    },
     modes: {
       bible: {
         file: 'data_biblia_kjvpce.json',
@@ -844,6 +888,63 @@ const LANGUAGE_DATA_MODES = {
         loadError: 'Could not load Bible commentary data.'
       }
     }
+  },
+  jp: {
+    htmlLang: 'ja-JP',
+    loadingLabel: '読み込み中...',
+    modeTitle: '読書モードを選択',
+    ui: {
+      booksTitle: '書',
+      chaptersTitle: '章',
+      bookFilterPlaceholder: '書名を検索...',
+      searchResultsAriaLabel: '検索結果',
+      play: '朗読',
+      pause: '一時停止',
+      resume: '再開',
+      stop: '停止',
+      speedOptions: {
+        slow: '遅い (0.5x)',
+        default: '標準 (0.9x)',
+        fast: '速い (1.5x)'
+      },
+      theme: 'テーマ',
+      font: 'フォント',
+      speedReader: '速読',
+      speed: '速度',
+      readingGoalTitle: '年間読書目標',
+      readingGoalText: (dayOfYear, targetBook, targetChapter) => `今日は年の<strong>${dayOfYear}</strong>日目です。今年中に聖書全体を読み終えるには、<strong>${targetBook} ${targetChapter}章</strong>まで読む必要があります。`,
+      readingGoalClose: '閉じる'
+    },
+    notices: {
+      bible: 'A CrossWire / SWORD Project tem um módulo chamado JapBungo, descrito como Bíblia japonesa, com "明治元訳「舊約聖書」 + 大正改訳「新約聖書」". E, mais importante para projeto, a página declara explicitamente "Distribution License: Public Domain". Ex 7.25 estava ausente, então foi completado com tradução.',
+      commentary: 'Foi gerada tradução automática por LLM do Matthew Henry Commentary em inglês de domínio público.'
+    },
+    modes: {
+      bible: {
+        file: 'data_biblia_japbungo.json',
+        verseDataFile: 'data_biblia_japbungo.json',
+        speechLanguage: 'ja-JP',
+        wholeChapterMode: true,
+        wholeChapterLabel: (end) => `1-${end}節`,
+        selectionLabel: '聖書のみ',
+        title: '聖書のみ',
+        searchPlaceholder: '聖書を検索...',
+        searchAriaLabel: '聖書を検索',
+        filesTitle: '節',
+        loadError: '聖書データを読み込めませんでした。'
+      },
+      commented: {
+        file: 'data_japones.json',
+        verseDataFile: 'data_biblia_japbungo.json',
+        speechLanguage: 'ja-JP',
+        selectionLabel: '聖書と注解',
+        title: '聖書と注解',
+        searchPlaceholder: '注解を検索...',
+        searchAriaLabel: '注解を検索',
+        filesTitle: '節の範囲',
+        loadError: '注解付き聖書データを読み込めませんでした。'
+      }
+    }
   }
 };
 
@@ -866,6 +967,7 @@ function applySelectedDataLabels(config) {
   speechLanguage = config.speechLanguage;
   scheduleVoiceListRefresh();
   applyUiLabels();
+  updateAppLegalNotices();
 }
 
 function getUiLabels() {
@@ -928,25 +1030,69 @@ function showAppAfterModeSelection() {
   document.getElementById('appShell').classList.remove('hidden');
 }
 
+function getNoticeTexts(languageKey = selectedLanguage, modeKey = selectedDataMode) {
+  const languageConfig = LANGUAGE_DATA_MODES[languageKey];
+  if (!languageConfig?.notices) return [];
+
+  const notices = [];
+  if (languageConfig.notices.bible) {
+    notices.push(languageConfig.notices.bible);
+  }
+  if ((!modeKey || modeKey === 'commented') && languageConfig.notices.commentary) {
+    notices.push(languageConfig.notices.commentary);
+  }
+  return notices.filter(Boolean);
+}
+
+function renderNotices(container, notices) {
+  if (!container) return;
+  container.innerHTML = '';
+  container.classList.toggle('hidden', notices.length === 0);
+
+  notices.forEach(notice => {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = notice;
+    container.appendChild(paragraph);
+  });
+}
+
+function updateModeSelectionNotices(modeKey = null) {
+  renderNotices(
+    document.getElementById('modeSelectionNotices'),
+    getNoticeTexts(selectedLanguage, modeKey)
+  );
+}
+
+function updateAppLegalNotices() {
+  renderNotices(
+    document.getElementById('appLegalNotices'),
+    getNoticeTexts(selectedLanguage, selectedDataMode)
+  );
+}
+
 function initializeDataModeSelection() {
   const errorEl = document.getElementById('modeSelectionError');
 
   document.querySelectorAll('[data-language]').forEach(button => {
     button.addEventListener('click', () => {
       selectedLanguage = button.dataset.language;
+      selectedDataMode = null;
       errorEl.textContent = '';
       updateLanguageSelectionState();
       updateReadingModeOptions();
+      updateModeSelectionNotices();
       document.getElementById('readingModeSelection').classList.remove('hidden');
     });
   });
 
   document.querySelectorAll('[data-data-mode]').forEach(button => {
     button.addEventListener('click', () => {
-      const config = LANGUAGE_DATA_MODES[selectedLanguage]?.modes[button.dataset.dataMode];
+      selectedDataMode = button.dataset.dataMode;
+      const config = LANGUAGE_DATA_MODES[selectedLanguage]?.modes[selectedDataMode];
       if (!config) return;
 
       errorEl.textContent = '';
+      updateModeSelectionNotices(selectedDataMode);
       setModeSelectionLoading(button);
       main(config);
     });
@@ -999,8 +1145,13 @@ function formatFileTitle(filename) {
     return 'Introdução do Capítulo';
   }
 
-  title = title.replace(/^Bíblia\b/i, 'Versículos');
-  title = title.replace(/^Comentário\b/i, 'Comentários');
+  if (selectedLanguage === 'jp') {
+    title = title.replace(/^Bible\b/i, '聖書');
+    title = title.replace(/^Commentary\b/i, '注解');
+  } else {
+    title = title.replace(/^Bíblia\b/i, 'Versículos');
+    title = title.replace(/^Comentário\b/i, 'Comentários');
+  }
 
   return title;
 }
