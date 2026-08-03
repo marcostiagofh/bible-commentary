@@ -1060,6 +1060,7 @@ function renderCurrentFileContent() {
     ? getWholeChapterContent(currentBook, currentChapter)
     : bibleData[currentBook][currentChapter][currentFilePath];
   content = expandSameChapterReferences(content);
+  content = normalizeEnglishCrossReferences(content);
   content = expandAbbreviatedReferences(content);
   contentEl.textContent = isWholeChapterMode()
     ? content
@@ -2033,14 +2034,17 @@ function getProtectedSpeechPeriodPositions(text) {
   const abbreviationsRegex = /\b(?:cap|cf|v|vv|vs|p|pp|ex|etc)\./gi;
   addProtectedPeriodPositions(text, abbreviationsRegex, protectedPeriods);
 
-  const bookPattern = [...livros_biblia, ...abreviacoes]
-    .map(escapeRegExp)
-    .sort((a, b) => b.length - a.length)
-    .join('|');
+  const bookPattern = getBookAliasPattern()
+  const englishBookPattern = getEnglishBookAliasPattern()
+  const oneChapterEnglishBookPattern = getOneChapterEnglishBookAliasPattern()
   const versePattern = String.raw`\d+\.\d+(?:(?:,|-)\s*\d+)*`;
   const crossReferencePattern = `${versePattern}(?:;\\s*${versePattern})*`;
+  const romanChapterVersePattern = `${ROMAN_NUMERAL_PATTERN}\\.\\s+${VERSE_INDICES_PATTERN}`;
+  const englishRomanCrossReferencePattern = `${romanChapterVersePattern}(?:;\\s+${romanChapterVersePattern})*`;
+  const englishOneChapterCrossReferencePattern = `${VERSE_INDICES_PATTERN}`;
+  const sameChapterPrefixPattern = String.raw`\b(?:cap\.)\s*${crossReferencePattern}`;
   const bibleReferenceRegex = new RegExp(
-    String.raw`(?:\b(?:${bookPattern})\s+${crossReferencePattern}|\bcap\.\s*${crossReferencePattern}|\b${crossReferencePattern})`,
+    String.raw`(?:\b(?:${bookPattern})\s+${crossReferencePattern}|${sameChapterPrefixPattern}|\b${crossReferencePattern}|(?<![\w.])(?:${englishBookPattern})\s+${englishRomanCrossReferencePattern}|(?<![\w.])(?:${oneChapterEnglishBookPattern})\s+${englishOneChapterCrossReferencePattern})`,
     'gi'
   );
   addProtectedPeriodPositions(text, bibleReferenceRegex, protectedPeriods);
@@ -2272,16 +2276,103 @@ const abreviacoes2 = [
 "1Pe","2Pe","1Jo","2Jo","3Jo","Jd","Ap"
 ];
 
+const livros_biblia_ingles = [
+"Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job",
+"Psalms","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi",
+"Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James",
+"1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"
+];
+
+const abreviacoes_ingles = [
+"Gen.","Exod.","Lev.","Num.","Deut.","Josh.","Judg.","Ruth","1 Sam.","2 Sam.","1 Kings","2 Kings","1 Chron.","2 Chron.","Ezra","Neh.","Esth.","Job",
+"Psalm.","Prov.","Eccles.","Cant.","Isa.","Jer.","Lam.","Eze.","Dan.","Hos.","Joel","Amos","Obad.","Jonah","Micah","Nah.","Hab.","Zep.","Hag.","Zec.","Mal.",
+"Matt.","Mark","Luke","John","Acts","Rom.","1 Cor.","2 Cor.","Gal.","Eph.","Phil.","Col.","1 Thess.","2 Thess.","1 Tim.","2 Tim.","Titus","Phil.","Heb.","James",
+"1 Pet.","2 Pet.","1 John","2 John","3 John","Jude","Rev."
+];
+
+const aliases_ingles_extra = [
+  ["Ps.", 19],
+  ["Ezek.", 26],
+  ["Zeph.", 36],
+  ["Zech.", 38],
+  ["Philem.", 57]
+];
+
+const aliases_livros_um_capitulo_ingles = ["Obad.","Phil.","Philemon","Philem.","2 John","3 John","Jude"];
+const ROMAN_NUMERAL_PATTERN = String.raw`[ivxlcdm]+`;
+const VERSE_RANGE_PATTERN = String.raw`\d+(?:\s*-\s*\d+)?`;
+const VERSE_INDICES_PATTERN = String.raw`${VERSE_RANGE_PATTERN}(?:\s*,\s*${VERSE_RANGE_PATTERN})*`;
+const NORMALIZED_VERSE_REFERENCE_PATTERN = String.raw`\d+\.\d+(?:(?:,|-)\s*\d+)*`;
+
+function getBookAliases() {
+  return [
+    ...livros_biblia,
+    ...abreviacoes,
+    ...abreviacoes2,
+    ...livros_biblia_ingles,
+    ...abreviacoes_ingles,
+    ...aliases_ingles_extra.map(([alias]) => alias)
+  ];
+}
+
+function getEnglishBookAliases() {
+  return [
+    ...livros_biblia_ingles,
+    ...abreviacoes_ingles,
+    ...aliases_ingles_extra.map(([alias]) => alias)
+  ];
+}
+
+function buildAliasPattern(aliases) {
+  return [...new Set(aliases)]
+    .map(escapeRegExp)
+    .sort((a, b) => b.length - a.length)
+    .join('|');
+}
+
+function getBookAliasPattern() {
+  return buildAliasPattern(getBookAliases());
+}
+
+function getEnglishBookAliasPattern() {
+  return buildAliasPattern(getEnglishBookAliases());
+}
+
+function getOneChapterEnglishBookAliasPattern() {
+  return buildAliasPattern(aliases_livros_um_capitulo_ingles);
+}
+
+function normalizeBookAlias(alias) {
+  return String(alias || '').toLowerCase();
+}
+
+function registerBookAlias(alias, index) {
+  if (!alias) return;
+  const key = normalizeBookAlias(alias);
+  if (livroMap[key] === undefined) {
+    livroMap[key] = index;
+  }
+}
+
 // Mapa para buscar índice por nome ou abreviação
 const livroMap = {};
 livros_biblia.forEach((nome, i) => {
-  livroMap[nome] = i + 1;
-  livroMap[abreviacoes[i]] = i + 1;
+  registerBookAlias(nome, i + 1);
+  registerBookAlias(abreviacoes[i], i + 1);
+  registerBookAlias(abreviacoes2[i], i + 1);
+  registerBookAlias(livros_biblia_ingles[i], i + 1);
+  registerBookAlias(abreviacoes_ingles[i], i + 1);
+});
+aliases_ingles_extra.forEach(([alias, index]) => {
+  registerBookAlias(alias, index);
 });
 
 
 // Gera o regex a partir da lista de livros
-const verseRegex = new RegExp(`(?<!\\w)(((${[...livros_biblia, ...abreviacoes, ...abreviacoes2].join('|')})\\s(\\d+)\\.(\\d+(?:(?:,|-)\\d+)*)))`, 'g');
+const bookAliasPattern = getBookAliasPattern();
+const englishBookAliasPattern = getEnglishBookAliasPattern();
+const oneChapterEnglishBookAliasPattern = getOneChapterEnglishBookAliasPattern();
+const verseRegex = new RegExp(`(?<!\\w)((${bookAliasPattern})\\s+${NORMALIZED_VERSE_REFERENCE_PATTERN})`, 'gi');
 
 function expandSameChapterReferences(text) {
   let expandedText = String(text || '');
@@ -2306,6 +2397,58 @@ function expandSameChapterReferences(text) {
   return expandedText;
 }
 
+function romanToDecimal(value) {
+  const romanValues = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+  let total = 0;
+  let previous = 0;
+
+  [...String(value || '').toLowerCase()].reverse().forEach(char => {
+    const current = romanValues[char] || 0;
+    if (current < previous) {
+      total -= current;
+    } else {
+      total += current;
+      previous = current;
+    }
+  });
+
+  return total;
+}
+
+function normalizeVerseIndices(indices) {
+  return String(indices || '')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s*,\s*/g, ',');
+}
+
+function normalizeEnglishCrossReferences(text) {
+  let normalizedText = String(text || '');
+  const romanChapterVersePattern = `${ROMAN_NUMERAL_PATTERN}\\.\\s+${VERSE_INDICES_PATTERN}`;
+  const englishRomanReferenceRegex = new RegExp(
+    `(?<![\\w.])(${englishBookAliasPattern})\\s+(${romanChapterVersePattern}(?:;\\s+${romanChapterVersePattern})*)`,
+    'gi'
+  );
+  const oneChapterReferenceRegex = new RegExp(
+    `(?<![\\w.])(${oneChapterEnglishBookAliasPattern})\\s+(${VERSE_INDICES_PATTERN})(?!\\.\\d)`,
+    'gi'
+  );
+
+  normalizedText = normalizedText.replace(englishRomanReferenceRegex, (match, book, indices) => {
+    const normalizedIndices = indices.split(/;\s+/).map(indice => {
+      const chapterMatch = indice.match(new RegExp(`^(${ROMAN_NUMERAL_PATTERN})\\.\\s+(${VERSE_INDICES_PATTERN})$`, 'i'));
+      if (!chapterMatch) return indice;
+
+      return `${romanToDecimal(chapterMatch[1])}.${normalizeVerseIndices(chapterMatch[2])}`;
+    });
+
+    return `${book} ${normalizedIndices.join('; ')}`;
+  });
+
+  return normalizedText.replace(oneChapterReferenceRegex, (match, book, verses) => {
+    return `${book} 1.${normalizeVerseIndices(verses)}`;
+  });
+}
+
 function fixReferencesSameChapter() {
   const contentEl = document.getElementById('content');
   contentEl.textContent = expandSameChapterReferences(contentEl.textContent);
@@ -2318,7 +2461,7 @@ function expandAbbreviatedReferences(text) {
     // Grupo 2: Referência de capítulo.versículo
     //const fullOrAbbrRegex = new RegExp(`(?<![\\w])(${[...livros_biblia, ...abreviacoes].join('|')})\\s+((\\d+\\.(\\d+(?:(?:,|-)\\d+)?)+(?:;\\s(\\d+\\.(\\d+(?:(?:,|-)\\d+))*)`, 'g');
     //const blockRegex = new RegExp(`(?<![\\w])((${[...livros_biblia, ...abreviacoes].join('|')})\\s+([\\d.,;\\s-]+[\\d]))`, 'g');
-    const blockRegex = new RegExp(`(?<![\\w])((${[...livros_biblia, ...abreviacoes, ...abreviacoes2].join('|')})\\s+\\d+\\.\\d+([-,]\\s*\\d+)*(;\\s+\\d+\\.\\d+([-,]\\s*\\d+)*)+)`, 'g');
+    const blockRegex = new RegExp(`(?<![\\w.])((${bookAliasPattern})\\s+${NORMALIZED_VERSE_REFERENCE_PATTERN}(?:;\\s+${NORMALIZED_VERSE_REFERENCE_PATTERN})+)`, 'gi');
     // Regex para encontrar um bloco de referência, como "Lv 6.2-4; 14.12; 19.21"
   
     html = html.replace(blockRegex, (fullMatch, fullReferenceBlock, book) => {
@@ -2380,16 +2523,16 @@ async function handleVerseClick(event) {
 function fetchVerseText(ref) {
   // Parse da referência: Ex: "Gênesis 1:1-3"
   // Regex atualizado para parsear a referência completa, incluindo listas com vírgulas.
-  const parsingRegex = new RegExp(`^(${[...livros_biblia, ...abreviacoes, ...abreviacoes2].join('|')})\\s+(\\d+)\\.((?:\\d+(?:(?:,|-)\\d+)*))$`, 'i');
+  const parsingRegex = new RegExp(`^(${bookAliasPattern})\\s+(\\d+)\\.(${VERSE_INDICES_PATTERN})$`, 'i');
   const match = ref.match(parsingRegex);
 
   if (!match) return `Referência inválida: "${ref}"`;
 
   let [, bookName, chapterNum, versesPart] = match;
-  const verseList = versesPart.split(',');
+  const verseList = normalizeVerseIndices(versesPart).split(',');
 
   // 1. Encontrar a chave correta do livro em bibleVerseData (ex: "01 - Gênesis")
-  const bookIndex = livroMap[bookName];
+  const bookIndex = livroMap[normalizeBookAlias(bookName)];
   bookName = livros_biblia[bookIndex - 1];
   const bookKey = Object.keys(bibleVerseData).find(k => k.startsWith(String(bookIndex).padStart(2, '0')));
   if (!bookKey || !bibleVerseData[bookKey]) {
@@ -2402,9 +2545,6 @@ function fetchVerseText(ref) {
       const num = k.split(' ')[0];
       return parseInt(num, 10) === parseInt(chapterNum, 10);
   });
-  console.log('bookKey:', bookKey);
-  console.log('chapterKey:', chapterKey);
-  console.log('bibleVerseData:', [bookKey][chapterKey]);
   if (!chapterKey || !bibleVerseData[bookKey][chapterKey]) {
       console.error(`Chave do capítulo não encontrada para: ${chapterNum} em ${bookKey}`);
       return null;
@@ -2426,13 +2566,13 @@ function fetchVerseText(ref) {
   verseList.forEach(verseItem => {
     if (verseItem.includes('-')) {
       // É um intervalo, como "20-25"
-      const [start, end] = verseItem.split('-').map(Number);
+      const [start, end] = verseItem.split('-').map(value => Number(value.trim()));
       for (let i = start; i <= end; i++) {
         concatenatedText += getVerse(i);
       }
     } else {
       // É um único versículo, como "5" ou "31"
-      const verseNum = parseInt(verseItem, 10);
+      const verseNum = parseInt(verseItem.trim(), 10);
       concatenatedText += getVerse(verseNum);
     }
   });
