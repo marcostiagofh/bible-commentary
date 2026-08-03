@@ -538,10 +538,77 @@
   }
 
   .mode-option-flag {
+    border-radius: 5px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 4px 10px rgba(0, 0, 0, 0.18);
     display: block;
-    font-size: 2.4rem;
-    line-height: 1;
+    height: 2rem;
     margin-bottom: 0.65rem;
+    overflow: hidden;
+    position: relative;
+    width: 3rem;
+  }
+
+  .mode-option-flag.flag-br {
+    background: #009B3A;
+  }
+
+  .mode-option-flag.flag-br::before {
+    background: #FFDF00;
+    content: '';
+    height: 1.45rem;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+    width: 1.45rem;
+  }
+
+  .mode-option-flag.flag-br::after {
+    background: #002776;
+    border-radius: 999px;
+    content: '';
+    height: 0.82rem;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 0.82rem;
+  }
+
+  .mode-option-flag.flag-us {
+    background: repeating-linear-gradient(
+      to bottom,
+      #B22234 0,
+      #B22234 7.69%,
+      #FFFFFF 7.69%,
+      #FFFFFF 15.38%
+    );
+  }
+
+  .mode-option-flag.flag-us::before {
+    background: #3C3B6E;
+    content: '';
+    height: 1.08rem;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 1.35rem;
+  }
+
+  .mode-option-flag.flag-jp {
+    background: #FFFFFF;
+  }
+
+  .mode-option-flag.flag-jp::after {
+    background: #BC002D;
+    border-radius: 999px;
+    content: '';
+    height: 1.02rem;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 1.02rem;
   }
 
   .mode-option.is-selected {
@@ -631,15 +698,15 @@
       <h1 id="modeSelectionTitle" class="mode-selection-title">Escolha o idioma</h1>
       <div class="language-selection-actions">
         <button class="mode-option language-option" type="button" data-language="pt" aria-pressed="false">
-          <span class="mode-option-flag" aria-hidden="true">🇧🇷</span>
+          <span class="mode-option-flag flag-br" aria-hidden="true"></span>
           <span>Português</span>
         </button>
         <button class="mode-option language-option" type="button" data-language="en" aria-pressed="false">
-          <span class="mode-option-flag" aria-hidden="true">🇺🇸</span>
+          <span class="mode-option-flag flag-us" aria-hidden="true"></span>
           <span>English</span>
         </button>
         <button class="mode-option language-option" type="button" data-language="jp" aria-pressed="false">
-          <span class="mode-option-flag" aria-hidden="true">🇯🇵</span>
+          <span class="mode-option-flag flag-jp" aria-hidden="true"></span>
           <span>日本語</span>
         </button>
       </div>
@@ -799,11 +866,16 @@ const LANGUAGE_DATA_MODES = {
       speed: 'Velocidade',
       readingGoalTitle: 'Sua Meta de Leitura Anual',
       readingGoalText: (dayOfYear, targetBook, targetChapter) => `Estamos no <strong>${dayOfYear}°</strong> dia do ano. Para terminar de ler toda a bíblia ainda este ano, você precisa ler até <strong>${targetBook} capítulo ${targetChapter}</strong>.`,
-      readingGoalClose: 'Entendido'
+      readingGoalClose: 'Entendido',
+      verseDisplayTitle: 'Texto dos Versículos',
+      verseLoading: 'Buscando...',
+      referenceNotFound: (ref) => `Referência não encontrada: ${ref}`,
+      invalidReference: (ref) => `Referência inválida: "${ref}"`,
+      verseNotFound: 'Versículo não encontrado'
     },
     notices: {
-      bible: 'Tradução Brasileira 1917 de domínio público',
-      commentary: ''
+      bible: 'Bible text: Tradução Brasileira 1917, public domain.',
+      commentary: 'Bible commentary summaries were generated automatically with AI and are not guaranteed to be fully accurate.'
     },
     modes: {
       bible: {
@@ -856,7 +928,12 @@ const LANGUAGE_DATA_MODES = {
       speed: 'Speed',
       readingGoalTitle: 'Your Annual Reading Goal',
       readingGoalText: (dayOfYear, targetBook, targetChapter) => `We are on day <strong>${dayOfYear}</strong> of the year. To finish reading the whole Bible this year, you need to read through <strong>${targetBook} chapter ${targetChapter}</strong>.`,
-      readingGoalClose: 'Got it'
+      readingGoalClose: 'Got it',
+      verseDisplayTitle: 'Verse Text',
+      verseLoading: 'Searching...',
+      referenceNotFound: (ref) => `Reference not found: ${ref}`,
+      invalidReference: (ref) => `Invalid reference: "${ref}"`,
+      verseNotFound: 'Verse not found'
     },
     notices: {
       bible: 'English Bible text: King James Version, Pure Cambridge Edition. Digital source: CrossWire KJVPCE module, listed by CrossWire as Public Domain. This project does not redistribute CrossWire software, Strong’s data, morphology, or editorial annotations. Local restrictions may apply to the Authorized/King James Version in the United Kingdom.',
@@ -913,11 +990,16 @@ const LANGUAGE_DATA_MODES = {
       speed: '速度',
       readingGoalTitle: '年間読書目標',
       readingGoalText: (dayOfYear, targetBook, targetChapter) => `今日は年の<strong>${dayOfYear}</strong>日目です。今年中に聖書全体を読み終えるには、<strong>${targetBook} ${targetChapter}章</strong>まで読む必要があります。`,
-      readingGoalClose: '閉じる'
+      readingGoalClose: '閉じる',
+      verseDisplayTitle: '聖句本文',
+      verseLoading: '検索中...',
+      referenceNotFound: (ref) => `参照が見つかりません: ${ref}`,
+      invalidReference: (ref) => `無効な参照です: "${ref}"`,
+      verseNotFound: '聖句が見つかりません'
     },
     notices: {
-      bible: 'A CrossWire / SWORD Project tem um módulo chamado JapBungo, descrito como Bíblia japonesa, com "明治元訳「舊約聖書」 + 大正改訳「新約聖書」". E, mais importante para projeto, a página declara explicitamente "Distribution License: Public Domain". Ex 7.25 estava ausente, então foi completado com tradução.',
-      commentary: 'Foi gerada tradução automática por LLM do Matthew Henry Commentary em inglês de domínio público.'
+      bible: 'Japanese Bible text: CrossWire / SWORD JapBungo module, described as "明治元訳「舊約聖書」 + 大正改訳「新約聖書」" and listed with "Distribution License: Public Domain." Exodus 7:25 was absent in the source data and was completed with translation.',
+      commentary: 'Japanese commentary text was generated by automatic LLM translation from the public-domain English Matthew Henry Commentary.'
     },
     modes: {
       bible: {
@@ -1001,6 +1083,7 @@ function applyUiLabels() {
   document.getElementById('sr-speed-label').textContent = labels.speed;
   document.getElementById('reading-goal-title').textContent = labels.readingGoalTitle;
   document.getElementById('reading-goal-close').textContent = labels.readingGoalClose;
+  document.getElementById('verse-display-title').textContent = labels.verseDisplayTitle;
 }
 
 function setModeSelectionLoading(activeButton) {
@@ -1121,6 +1204,18 @@ function stripNumericPrefix(value) {
   return String(value || '').replace(/^\d+\s*-\s*/, '').trim();
 }
 
+function getCurrentBookReferenceAlias() {
+  if (selectedLanguage === 'jp') {
+    const bookIndexMatch = String(currentBook || '').match(/^(\d+)\s*-\s*/);
+    const bookIndex = bookIndexMatch ? parseInt(bookIndexMatch[1], 10) : null;
+    if (bookIndex && livros_biblia_ingles[bookIndex - 1]) {
+      return livros_biblia_ingles[bookIndex - 1];
+    }
+  }
+
+  return stripNumericPrefix(currentBook);
+}
+
 function isSameLabel(value, label) {
   return normalizeSearchText(value).trim() === normalizeSearchText(label).trim();
 }
@@ -1211,7 +1306,7 @@ function renderCurrentFileContent() {
     ? getWholeChapterContent(currentBook, currentChapter)
     : bibleData[currentBook][currentChapter][currentFilePath];
   content = expandSameChapterReferences(content);
-  content = normalizeEnglishCurrentBookReferences(content);
+  content = normalizeCurrentBookRomanReferences(content);
   content = normalizeEnglishCrossReferences(content);
   content = expandAbbreviatedReferences(content);
   contentEl.textContent = isWholeChapterMode()
@@ -2447,7 +2542,8 @@ const aliases_ingles_extra = [
   ["Ezek.", 26],
   ["Zeph.", 36],
   ["Zech.", 38],
-  ["Philem.", 57]
+  ["Philem.", 57],
+  ["Jam.", 59]
 ];
 
 const aliases_livros_um_capitulo_ingles = ["Obad.","Phil.","Philemon","Philem.","2 John","3 John","Jude"];
@@ -2455,6 +2551,7 @@ const ROMAN_NUMERAL_PATTERN = String.raw`[ivxlcdm]+`;
 const VERSE_RANGE_PATTERN = String.raw`\d+(?:\s*-\s*\d+)?`;
 const VERSE_INDICES_PATTERN = String.raw`${VERSE_RANGE_PATTERN}(?:\s*,\s*${VERSE_RANGE_PATTERN})*`;
 const NORMALIZED_VERSE_REFERENCE_PATTERN = String.raw`\d+\.\d+(?:(?:,|-)\s*\d+)*`;
+const NORMALIZED_CHAPTER_REFERENCE_PATTERN = String.raw`\d+(?!\.\d)`;
 
 function getBookAliases() {
   return [
@@ -2524,7 +2621,7 @@ aliases_ingles_extra.forEach(([alias, index]) => {
 const bookAliasPattern = getBookAliasPattern();
 const englishBookAliasPattern = getEnglishBookAliasPattern();
 const oneChapterEnglishBookAliasPattern = getOneChapterEnglishBookAliasPattern();
-const verseRegex = new RegExp(`(?<!\\w)((${bookAliasPattern})\\s+${NORMALIZED_VERSE_REFERENCE_PATTERN})`, 'gi');
+const bibleReferenceLinkRegex = new RegExp(`(?<!\\w)((${bookAliasPattern})\\s+(?:${NORMALIZED_VERSE_REFERENCE_PATTERN}|${NORMALIZED_CHAPTER_REFERENCE_PATTERN}))`, 'gi');
 
 function expandSameChapterReferences(text) {
   let expandedText = String(text || '');
@@ -2541,7 +2638,7 @@ function expandSameChapterReferences(text) {
     
     expandedText = expandedText.replace(sameChapterRegex, (match, versePart) => {
       // Reconstrói a referência completa, ex: "Gênesis 1.23"
-      // Esta string será então capturada pelo verseRegex no próximo passo.
+      // Esta string será então capturada pelo regex de referências no próximo passo.
       return `${bookNameOnly} ${versePart}`;
     });
   }
@@ -2573,13 +2670,17 @@ function normalizeVerseIndices(indices) {
     .replace(/\s*,\s*/g, ',');
 }
 
-function normalizeEnglishCurrentBookReferences(text) {
-  if (selectedLanguage !== 'en' || !currentBook) return String(text || '');
+function normalizeCurrentBookRomanReferences(text) {
+  if (!['en', 'jp'].includes(selectedLanguage) || !currentBook) return String(text || '');
 
-  const bookNameOnly = stripNumericPrefix(currentBook);
+  const bookNameOnly = getCurrentBookReferenceAlias();
   const romanChapterVersePattern = `${ROMAN_NUMERAL_PATTERN}\\.\\s+${VERSE_INDICES_PATTERN}`;
   const currentBookRomanReferenceRegex = new RegExp(
     `(?<![\\w.])ch\\.\\s+(${romanChapterVersePattern}(?:;\\s+${romanChapterVersePattern})*)`,
+    'gi'
+  );
+  const currentBookRomanChapterRegex = new RegExp(
+    `(?<![\\w.])ch\\.\\s+(${ROMAN_NUMERAL_PATTERN})(?:\\.(?!\\s*\\d)|(?![\\w.]|\\s*\\d))`,
     'gi'
   );
 
@@ -2592,6 +2693,8 @@ function normalizeEnglishCurrentBookReferences(text) {
     });
 
     return `${bookNameOnly} ${normalizedIndices.join('; ')}`;
+  }).replace(currentBookRomanChapterRegex, (match, chapter) => {
+    return `${bookNameOnly} ${romanToDecimal(chapter)}`;
   });
 }
 
@@ -2663,7 +2766,7 @@ function makeReferencesClickable() {
   let html = contentEl.textContent; // Usar textContent para evitar problemas com HTML já existente
 
   // Substitui as referências por links clicáveis
-  html = html.replace(verseRegex, (match) => {
+  html = html.replace(bibleReferenceLinkRegex, (match) => {
       return `<a href="#" class="verse-link text-blue-400 hover:underline" data-ref="${match}">${match}</a>`;
   });
 
@@ -2674,22 +2777,22 @@ async function handleVerseClick(event) {
     if (event.target.classList.contains('verse-link')) {
         event.preventDefault();
         const ref = event.target.dataset.ref;
+        const labels = getUiLabels();
         
         const verseDisplayContainer = document.getElementById('verse-display-container');
         const verseDisplay = document.getElementById('verse-display');
         const verseDisplayTitle = document.getElementById('verse-display-title');
         
-        verseDisplay.textContent = 'Buscando...';
-        // Reseta o título para o padrão ao iniciar uma nova busca
-        verseDisplayTitle.textContent = 'Texto dos Versículos';
+        verseDisplay.textContent = labels.verseLoading;
+        verseDisplayTitle.textContent = labels.verseDisplayTitle;
         verseDisplayContainer.classList.remove('hidden');
         verseDisplayContainer.classList.add('flex');
 
         const text = await fetchVerseText(ref);
-        verseDisplay.textContent = text || `Referência não encontrada: ${ref}`;
+        verseDisplay.textContent = text || labels.referenceNotFound(ref);
 
-        if (text && !text.includes('não encontrado') && !text.includes('inválida')) {
-            verseDisplayTitle.textContent = `Texto dos Versículos — ${ref}`;
+        if (text && text !== labels.invalidReference(ref) && !text.includes(labels.verseNotFound)) {
+            verseDisplayTitle.textContent = `${labels.verseDisplayTitle} — ${ref}`;
         }
     }
 }
@@ -2697,13 +2800,12 @@ async function handleVerseClick(event) {
 function fetchVerseText(ref) {
   // Parse da referência: Ex: "Gênesis 1:1-3"
   // Regex atualizado para parsear a referência completa, incluindo listas com vírgulas.
-  const parsingRegex = new RegExp(`^(${bookAliasPattern})\\s+(\\d+)\\.(${VERSE_INDICES_PATTERN})$`, 'i');
+  const parsingRegex = new RegExp(`^(${bookAliasPattern})\\s+(\\d+)(?:\\.(${VERSE_INDICES_PATTERN}))?$`, 'i');
   const match = ref.match(parsingRegex);
 
-  if (!match) return `Referência inválida: "${ref}"`;
+  if (!match) return getUiLabels().invalidReference(ref);
 
   let [, bookName, chapterNum, versesPart] = match;
-  const verseList = normalizeVerseIndices(versesPart).split(',');
 
   // 1. Encontrar a chave correta do livro em bibleVerseData (ex: "01 - Gênesis")
   const bookIndex = livroMap[normalizeBookAlias(bookName)];
@@ -2726,6 +2828,13 @@ function fetchVerseText(ref) {
 
   const chapterData = bibleVerseData[bookKey][chapterKey];
   let concatenatedText = '';
+  const verseList = versesPart
+    ? normalizeVerseIndices(versesPart).split(',')
+    : Object.keys(chapterData)
+        .map(fileName => parseInt(fileName, 10))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b)
+        .map(String);
 
   // Função auxiliar para buscar um único versículo
   const getVerse = (verseNum) => {
@@ -2733,7 +2842,7 @@ function fetchVerseText(ref) {
     if (chapterData[verseFileName]) {
       return `[${verseNum}] ${chapterData[verseFileName]}\n`;
     }
-    return `[${verseNum}] -- Versículo não encontrado --\n`;
+    return `[${verseNum}] -- ${getUiLabels().verseNotFound} --\n`;
   };
 
   // 3. Lógica atualizada para buscar os versículos (intervalos e listas)
