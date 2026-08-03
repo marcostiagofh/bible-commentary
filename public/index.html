@@ -864,7 +864,7 @@ function applySelectedDataLabels(config) {
   document.getElementById('filesSectionTitle').textContent = config.filesTitle;
   document.title = `${config.title} — Navegador Local`;
   speechLanguage = config.speechLanguage;
-  populateVoiceList();
+  scheduleVoiceListRefresh();
   applyUiLabels();
 }
 
@@ -1686,6 +1686,11 @@ function playNext() {
 }
 const synth = window.speechSynthesis;
 let voices = [];
+let voiceLoadRetryTimer = null;
+let voiceLoadRetryAttempts = 0;
+let hasTriedSpeechUnlock = false;
+const MAX_VOICE_LOAD_RETRIES = 20;
+const VOICE_LOAD_RETRY_DELAY = 250;
 // Variáveis para controlar o estado da fala
 let speechQueue = [];
 let currentChunkIndex = 0;   // índice do chunk atualmente a ser lido
@@ -1736,17 +1741,46 @@ function getVoiceLabel(voice) {
   return `${voice.name} (${voice.lang || 'sem idioma'})${labels.length ? ` - ${labels.join(', ')}` : ''}`;
 }
 
+function getSavedVoiceURI() {
+  return localStorage.getItem(`speechVoiceURI:${speechLanguage}`) || localStorage.getItem('speechVoiceURI') || null;
+}
+
+function saveSelectedVoiceURI() {
+  const voiceSelect = document.getElementById('voiceSelect');
+  const selectedIndex = parseInt(voiceSelect.value, 10);
+  const selectedVoice = voices[selectedIndex];
+
+  if (selectedVoice?.voiceURI) {
+    localStorage.setItem(`speechVoiceURI:${speechLanguage}`, selectedVoice.voiceURI);
+    localStorage.setItem('speechVoiceURI', selectedVoice.voiceURI);
+  }
+}
+
 function populateVoiceList() {
+  if (!synth || typeof synth.getVoices !== 'function') return false;
+
   const allVoices = synth.getVoices();
+  const voiceSelect = document.getElementById('voiceSelect');
+
+  if (!allVoices.length) {
+    voices = [];
+    voiceSelect.innerHTML = '';
+    const option = document.createElement('option');
+    option.textContent = 'Carregando vozes...';
+    option.value = '';
+    option.disabled = true;
+    option.selected = true;
+    voiceSelect.appendChild(option);
+    return false;
+  }
+
   const preferredVoices = allVoices
     .filter(voice => isPreferredLanguageVoice(voice) || isMultilingualVoice(voice))
     .sort((a, b) => getVoicePriority(a) - getVoicePriority(b) || a.name.localeCompare(b.name));
   const newVoices = preferredVoices.length ? preferredVoices : allVoices;
 
-  const voiceSelect = document.getElementById('voiceSelect');
-
   // Armazena o URI da voz atualmente selecionada antes de limpar o dropdown
-  let previouslySelectedVoiceURI = null;
+  let previouslySelectedVoiceURI = getSavedVoiceURI();
   if (voiceSelect.value !== '' && voices.length > 0) { // 'voices' aqui se refere à lista global *antiga*
       const currentVoiceOptionIndex = parseInt(voiceSelect.value, 10);
       if (currentVoiceOptionIndex >= 0 && currentVoiceOptionIndex < voices.length) {
@@ -1780,12 +1814,55 @@ function populateVoiceList() {
     // Se nada estava selecionado (primeira carga), seleciona a primeira
     voiceSelect.selectedIndex = 0;
   }
+
+  saveSelectedVoiceURI();
+  return true;
 }
 
-populateVoiceList();
-if (speechSynthesis.onvoiceschanged !== undefined) {
-  speechSynthesis.onvoiceschanged = populateVoiceList;
+function scheduleVoiceListRefresh(resetRetries = true) {
+  if (!synth) return;
+  if (resetRetries) voiceLoadRetryAttempts = 0;
+  if (voiceLoadRetryTimer) clearTimeout(voiceLoadRetryTimer);
+
+  const refresh = () => {
+    const hasVoices = populateVoiceList();
+    if (hasVoices || voiceLoadRetryAttempts >= MAX_VOICE_LOAD_RETRIES) {
+      voiceLoadRetryTimer = null;
+      return;
+    }
+
+    voiceLoadRetryAttempts++;
+    voiceLoadRetryTimer = setTimeout(refresh, VOICE_LOAD_RETRY_DELAY);
+  };
+
+  refresh();
 }
+
+function unlockSpeechVoices() {
+  if (!synth || hasTriedSpeechUnlock) return;
+  hasTriedSpeechUnlock = true;
+
+  try {
+    synth.resume();
+    const unlockUtterance = new SpeechSynthesisUtterance(' ');
+    unlockUtterance.lang = speechLanguage;
+    unlockUtterance.volume = 0;
+    synth.speak(unlockUtterance);
+    setTimeout(() => {
+      synth.cancel();
+      scheduleVoiceListRefresh();
+    }, 0);
+  } catch (error) {
+    scheduleVoiceListRefresh();
+  }
+}
+
+scheduleVoiceListRefresh();
+if (synth && typeof synth.addEventListener === 'function') {
+  synth.addEventListener('voiceschanged', () => scheduleVoiceListRefresh());
+}
+document.addEventListener('pointerdown', unlockSpeechVoices, { once: true, passive: true });
+document.addEventListener('touchstart', unlockSpeechVoices, { once: true, passive: true });
 
 function highlightCurrentChunk(chunkText, chunkStartOffset) {
     const contentEl = document.getElementById('content');
@@ -1869,7 +1946,7 @@ function speakTextQueue() {
 
   // cria utterance com o chunk atual (sempre do começo do chunk)
   currentUtterance = new SpeechSynthesisUtterance(textChunk);
-  const selectedIndex = document.getElementById('voiceSelect').value;
+  const selectedIndex = parseInt(document.getElementById('voiceSelect').value, 10);
   const speed = parseFloat(document.getElementById('speedSelect')?.value) || 0.9;
   const selectedVoice = voices && voices[selectedIndex] ? voices[selectedIndex] : null;
   currentUtterance.voice = selectedVoice;
@@ -2058,6 +2135,7 @@ function formatTextForReaderParagraphs(text, periodsPerParagraph = 5) {
 // --- Play / Pause / Start handler (substitua seu handlePlayPause por esta) ---
 function handlePlayPause() {
   const contentEl = document.getElementById('content');
+  scheduleVoiceListRefresh();
 
   // Se atualmente está pausado (estado interno), queremos retomar: reinicia speakTextQueue
   if (isPausedByUser) {
@@ -2135,7 +2213,10 @@ function handleStop() {
 // Eventos dos botões
 document.getElementById('btnPlayPause').addEventListener('click', handlePlayPause);
 document.getElementById('btnStop').addEventListener('click', handleStop);
-document.getElementById('voiceSelect').addEventListener('change', handleStop); // Para a leitura ao trocar de voz
+document.getElementById('voiceSelect').addEventListener('change', () => {
+  saveSelectedVoiceURI();
+  handleStop();
+}); // Para a leitura ao trocar de voz
 document.getElementById('content').addEventListener('click', handleVerseClick);
 document.getElementById('btnMusic').addEventListener('click', toggleMusic);
 
