@@ -1060,6 +1060,7 @@ function renderCurrentFileContent() {
     ? getWholeChapterContent(currentBook, currentChapter)
     : bibleData[currentBook][currentChapter][currentFilePath];
   content = expandSameChapterReferences(content);
+  content = normalizeEnglishCurrentBookReferences(content);
   content = normalizeEnglishCrossReferences(content);
   content = expandAbbreviatedReferences(content);
   contentEl.textContent = isWholeChapterMode()
@@ -2419,6 +2420,28 @@ function normalizeVerseIndices(indices) {
   return String(indices || '')
     .replace(/\s*-\s*/g, '-')
     .replace(/\s*,\s*/g, ',');
+}
+
+function normalizeEnglishCurrentBookReferences(text) {
+  if (selectedLanguage !== 'en' || !currentBook) return String(text || '');
+
+  const bookNameOnly = stripNumericPrefix(currentBook);
+  const romanChapterVersePattern = `${ROMAN_NUMERAL_PATTERN}\\.\\s+${VERSE_INDICES_PATTERN}`;
+  const currentBookRomanReferenceRegex = new RegExp(
+    `(?<![\\w.])ch\\.\\s+(${romanChapterVersePattern}(?:;\\s+${romanChapterVersePattern})*)`,
+    'gi'
+  );
+
+  return String(text || '').replace(currentBookRomanReferenceRegex, (match, indices) => {
+    const normalizedIndices = indices.split(/;\s+/).map(indice => {
+      const chapterMatch = indice.match(new RegExp(`^(${ROMAN_NUMERAL_PATTERN})\\.\\s+(${VERSE_INDICES_PATTERN})$`, 'i'));
+      if (!chapterMatch) return indice;
+
+      return `${romanToDecimal(chapterMatch[1])}.${normalizeVerseIndices(chapterMatch[2])}`;
+    });
+
+    return `${bookNameOnly} ${normalizedIndices.join('; ')}`;
+  });
 }
 
 function normalizeEnglishCrossReferences(text) {
