@@ -7,3 +7,5 @@ Este é um servidor web local e uma interface de usuário para navegar e ouvir a
 -   Listar livros, capítulos e arquivos.
 -   Interface web simples para navegação.
 -   Leitura de texto em voz alta usando a API de Síntese de Voz do navegador.
+
+[Link demonstração](https://marcostiagofh.github.io/bible-commentary/public/)
