@@ -3,9 +3,11 @@
 scripts/
 texto/
 node_modules/
-public/data_comentario.json
-public/data_resumido_backup.json
 _cache_wikisource_tb1917
 __pycache__
 melhorias site da biblia.txt
 github link.txt
+public/data_comentario_pt_mathen.json
+public/data_unificado_pt_jkv1611fiel_mathen-resumido-antigo.json
+public/data_comentario_pt_mathen-resumido-antigo.json
+public/data_unificado_pt_tb1917_mathen.json
