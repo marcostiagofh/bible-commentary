@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#170612" />
 <title>Comentário Bíblico — Navegador Local</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 
@@ -685,9 +686,17 @@
 <style>
   /* Garante que a classe .hidden do Tailwind sempre funcione */
   .hidden { display: none !important; }
-</style>
 
-<body class="font-sans p-4">
+  /* Estrutura neutra compartilhada pelos temas originais e pelo MekTxt. */
+  .manuscript-masthead { display: none; }
+  .reader-toolbar { flex-wrap: wrap; }
+  .reader-controls { flex: 1 1 100%; min-width: 0; width: 100%; }
+  .reader-controls > * { max-width: 100%; }
+  #voiceSelect { min-width: 0; max-width: 100%; }
+</style>
+<link rel="stylesheet" href="mektxt-theme.css" />
+
+<body class="font-sans p-4 mektxt-mode">
   <div id="background-layer">
     <div class="bg-image" id="bg1"></div>
     <div class="bg-image" id="bg2"></div>
@@ -695,6 +704,15 @@
 
   <section id="modeSelection" class="mode-selection" aria-labelledby="modeSelectionTitle">
     <div class="mode-selection-inner">
+      <div class="manuscript-brand selection-brand" aria-label="Scriptura — Bíblia e Comentário">
+        <span class="manuscript-brand-kicker">Bibliotheca localis</span>
+        <div class="manuscript-wordmark" aria-hidden="true">
+          <span class="manuscript-wordmark-fill">SCRIPTURA</span>
+          <span class="manuscript-wordmark-frame">SCRIPTURA</span>
+          <span class="manuscript-wordmark-letter">SCRIPTURA</span>
+        </div>
+        <p class="manuscript-brand-subtitle">Bíblia &amp; Comentário</p>
+      </div>
       <h1 id="modeSelectionTitle" class="mode-selection-title">Escolha o idioma</h1>
       <div class="language-selection-actions">
         <button class="mode-option language-option" type="button" data-language="pt" aria-pressed="false">
@@ -723,6 +741,17 @@
   </section>
 
   <div id="appShell" class="hidden">
+    <header class="manuscript-masthead">
+      <div class="manuscript-brand" aria-label="Scriptura — Bíblia e Comentário">
+        <span class="manuscript-brand-kicker">Bibliotheca localis</span>
+        <div class="manuscript-wordmark" aria-hidden="true">
+          <span class="manuscript-wordmark-fill">SCRIPTURA</span>
+          <span class="manuscript-wordmark-frame">SCRIPTURA</span>
+          <span class="manuscript-wordmark-letter">SCRIPTURA</span>
+        </div>
+        <p class="manuscript-brand-subtitle" id="appEditionLabel">Bíblia &amp; Comentário</p>
+      </div>
+    </header>
     <header class="site-search">
       <div class="search-shell">
         <div class="search-control">
@@ -753,12 +782,12 @@
 
       <!-- Área de Leitura (ocupa o resto do espaço) -->
       <main class="box flex-1 p-4 rounded-lg flex flex-col overflow-hidden">
-        <div class="flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
+        <div class="reader-toolbar flex flex-col sm:flex-row justify-between items-start mb-2 gap-4">
           <div id="readerHeading" class="hidden">
             <h2 id="readerTitle" class="text-2xl font-bold" style="color: var(--text-color);">Selecione um trecho</h2>
             <p id="readerSub" class="text-sm mt-1"></p>
           </div>
-          <div class="flex flex-wrap gap-2 items-center">
+          <div id="readerControls" class="reader-controls flex flex-wrap gap-2 items-center">
             <button id="btnPlayPause" class="px-3 py-1 bg-blue-600 rounded w-28 text-center" style="color:#FFFFFF">▶️ Ler</button>
             <button id="btnStop" class="px-3 py-1 bg-red-600 rounded" style="color:#FFFFFF">⏹️ Parar</button>
             <select id="speedSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm">
@@ -772,12 +801,12 @@
             </select>
             <select id="voiceSelect" class="bg-gray-700 text-white rounded px-2 py-1 text-sm"></select>
             <button id="btnMusic" class="px-3 py-1 bg-green-600 rounded w-28 text-center">🎵</button>
-          </div>
           <button id="themeToggle" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Tema</button>
           <button id="btnDecreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A-</button>
           <button id="btnIncreaseFont" class="px-2 py-1 bg-gray-600 rounded text-lg" style="color:#FFFFFF">A+</button>
           <button id="btnToggleFont" class="px-3 py-1 bg-gray-600 rounded" style="color:#FFFFFF">Fonte</button>
           <button id="btnSpeedReader" class="px-3 py-1 bg-purple-600 rounded" style="color:#FFFFFF">⚡️ Leitura Rápida</button>
+          </div>
         </div>
         <div class="prose max-w-none flex-1 overflow-y-auto">
           <pre id="content" class="leading-6" style="font-size: var(--reader-font-size, 14px);"></pre>
@@ -811,11 +840,11 @@
   </div>
 
   <!-- Janela Modal da Meta de Leitura (oculta por padrão) -->
-  <div id="reading-goal-overlay" class="hidden"></div>
-  <div id="reading-goal-modal" class="hidden text-center">
+  <div id="reading-goal-overlay" class="hidden" aria-hidden="true"></div>
+  <div id="reading-goal-modal" class="hidden text-center" role="dialog" aria-modal="true" aria-labelledby="reading-goal-title" aria-describedby="reading-goal-text" tabindex="-1">
     <h3 id="reading-goal-title" class="text-xl font-bold mb-4">Sua Meta de Leitura Anual</h3>
     <p id="reading-goal-text" class="mb-6 text-lg"></p>
-    <button id="reading-goal-close" class="px-4 py-2 bg-blue-600 rounded text-white">Entendido</button>
+    <button id="reading-goal-close" type="button" class="px-4 py-2 bg-blue-600 rounded text-white">Entendido</button>
   </div>
 
 
@@ -830,7 +859,7 @@ let isAutoplayEnabled = true; // Controle para a reprodução contínua
 let musicPlayer; // Variável para o player de música do YouTube
 let bibleVerseData = {}; // Para armazenar o data_biblia.json
 let currentTheme = 'dark'; // começa no modo escuro
-let currentFontSize = 14; // Tamanho da fonte padrão em pixels
+let currentFontSize = 17; // Tamanho de leitura confortável para o tema manuscrito
 let isSerifFont = false; // Controle para a fonte do leitor
 let searchIndex = [];
 let activeSearch = null;
@@ -1046,6 +1075,7 @@ function applySelectedDataLabels(config) {
   searchInput.setAttribute('aria-label', config.searchAriaLabel);
   document.getElementById('filesSectionTitle').textContent = config.filesTitle;
   document.title = `${config.title} — Navegador Local`;
+  document.getElementById('appEditionLabel').textContent = config.title;
   speechLanguage = config.speechLanguage;
   scheduleVoiceListRefresh();
   applyUiLabels();
@@ -1077,7 +1107,7 @@ function applyUiLabels() {
   document.querySelector('#speedSelect option[value="0.5"]').textContent = labels.speedOptions.slow;
   document.querySelector('#speedSelect option[value="0.9"]').textContent = labels.speedOptions.default;
   document.querySelector('#speedSelect option[value="1.5"]').textContent = labels.speedOptions.fast;
-  document.getElementById('themeToggle').textContent = labels.theme;
+  updateThemeControl();
   document.getElementById('btnToggleFont').textContent = labels.font;
   document.getElementById('btnSpeedReader').textContent = `⚡️ ${labels.speedReader}`;
   document.getElementById('sr-speed-label').textContent = labels.speed;
@@ -1298,6 +1328,37 @@ function prependReaderContentHeading() {
   contentEl.innerHTML = `<span class="reader-content-heading">${escapeHtml(heading)}</span>\n${contentEl.innerHTML}`;
 }
 
+function decorateReaderInitial() {
+  if (selectedLanguage === 'jp') return;
+
+  const contentEl = document.getElementById('content');
+  const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!/\p{L}/u.test(node.nodeValue || '')) return NodeFilter.FILTER_REJECT;
+      if (node.parentElement?.closest('.reader-content-heading, .manuscript-dropcap')) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+
+  const node = walker.nextNode();
+  if (!node) return;
+
+  const match = node.nodeValue.match(/\p{L}/u);
+  if (!match) return;
+
+  const index = match.index;
+  const fragment = document.createDocumentFragment();
+  fragment.append(document.createTextNode(node.nodeValue.slice(0, index)));
+
+  const initial = document.createElement('span');
+  initial.className = 'manuscript-dropcap';
+  initial.textContent = match[0];
+  fragment.append(initial, document.createTextNode(node.nodeValue.slice(index + match[0].length)));
+  node.replaceWith(fragment);
+}
+
 function renderCurrentFileContent() {
   if (!currentBook || !currentChapter || !currentFilePath) return;
 
@@ -1314,7 +1375,11 @@ function renderCurrentFileContent() {
     : formatTextForReaderParagraphs(content, 5);
   makeReferencesClickable();
   prependReaderContentHeading();
+  decorateReaderInitial();
   applyActiveSearchHighlightToContent();
+  contentEl.classList.remove('content-arrive');
+  void contentEl.offsetWidth;
+  contentEl.classList.add('content-arrive');
 }
 
 function normalizeSearchText(value) {
@@ -1734,7 +1799,7 @@ function changeBackgroundSmoothly(newImage) {
   const prevBg = currentBg === 1 ? bg1 : bg2;
 
   // define imagem nova
-  nextBg.style.backgroundImage = `url('${newImage}')`;
+  nextBg.style.backgroundImage = newImage ? `url('${newImage}')` : 'none';
 
   // inicia transição
   nextBg.style.opacity = 1;
@@ -1747,6 +1812,9 @@ function changeBackgroundSmoothly(newImage) {
 function selectBook(book){
   cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentBook = book;
+  document.querySelectorAll('.book-item').forEach(row => {
+    row.classList.toggle('is-active', row.textContent.trim() === book.trim());
+  });
   document.getElementById('readerTitle').textContent = '';
   document.getElementById('readerSub').textContent = '';
 
@@ -1802,6 +1870,10 @@ function selectBook(book){
 function selectChapter(book, chapter){
   cancelCurrentSpeech(); // 🔹 interrompe qualquer fala pendente
   currentChapter = chapter;
+  const activeChapterLabel = formatChapterTitle(chapter);
+  document.querySelectorAll('.chapter-item').forEach(row => {
+    row.classList.toggle('is-active', row.textContent.trim() === activeChapterLabel);
+  });
   document.getElementById('readerTitle').textContent = '';
   document.getElementById('readerSub').textContent = '';
   const filesDiv = document.getElementById('files');
@@ -1823,6 +1895,12 @@ function loadFile(book, chapter, filename){
   currentBook = book;
   currentChapter = chapter;
   currentFilePath = isWholeChapterMode() ? WHOLE_CHAPTER_FILE : filename;
+  const activeFileLabel = filename === WHOLE_CHAPTER_FILE
+    ? getWholeChapterLabel(book, chapter)
+    : formatFileTitle(filename);
+  document.querySelectorAll('.file-item').forEach(row => {
+    row.classList.toggle('is-active', row.textContent.trim() === activeFileLabel);
+  });
   // Salva o estado atual no localStorage
   localStorage.setItem('currentBook', book);
   localStorage.setItem('currentChapter', chapter);
@@ -2472,37 +2550,72 @@ document.getElementById('content').addEventListener('click', handleVerseClick);
 document.getElementById('btnMusic').addEventListener('click', toggleMusic);
 
 const themeToggle = document.getElementById('themeToggle');
+const themeOrder = ['dark', 'day', 'diamond', 'mektxt', 'mektxt-day'];
+const iconByTheme = { dark: '☾', day: '☀', diamond: '◆', mektxt: '📜☾', 'mektxt-day': '📜☀' };
+const themeNameByLanguage = {
+  pt: { dark: 'Noite', day: 'Dia', diamond: 'Diamante', mektxt: 'MekTxt Noite', 'mektxt-day': 'MekTxt Dia' },
+  en: { dark: 'Night', day: 'Day', diamond: 'Diamond', mektxt: 'MekTxt Night', 'mektxt-day': 'MekTxt Day' },
+  jp: { dark: '夜', day: '昼', diamond: 'ダイヤモンド', mektxt: 'MekTxt 夜', 'mektxt-day': 'MekTxt 昼' }
+};
+
+function updateThemeControl() {
+  const labels = getUiLabels();
+  const themeName = (themeNameByLanguage[selectedLanguage] || themeNameByLanguage.pt)[currentTheme];
+  themeToggle.replaceChildren();
+
+  const icon = document.createElement('span');
+  icon.className = 'theme-control-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.textContent = iconByTheme[currentTheme] || iconByTheme.dark;
+
+  const label = document.createElement('span');
+  label.textContent = labels.theme;
+  themeToggle.append(icon, label);
+  const accessibleLabel = `${labels.theme}: ${themeName}`;
+  themeToggle.setAttribute('aria-label', accessibleLabel);
+  themeToggle.setAttribute('title', accessibleLabel);
+  themeToggle.dataset.theme = currentTheme;
+  themeToggle.removeAttribute('aria-pressed');
+}
+
+function applyTheme(theme, persist = true) {
+  const body = document.body;
+  const validTheme = themeOrder.includes(theme) ? theme : 'dark';
+  body.classList.remove('day-mode', 'nature-mode', 'gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode', 'mektxt-mode');
+
+  currentTheme = validTheme;
+  if (validTheme === 'day') {
+    body.classList.add('day-mode');
+    changeBackgroundSmoothly('');
+  } else if (validTheme === 'diamond') {
+    body.classList.add('nature-mode', 'diamond-mode');
+    changeBackgroundSmoothly('diamante branco.jpg');
+  } else if (validTheme === 'mektxt-day') {
+    body.classList.add('mektxt-mode', 'day-mode');
+    changeBackgroundSmoothly('');
+  } else if (validTheme === 'mektxt') {
+    body.classList.add('mektxt-mode');
+    changeBackgroundSmoothly('');
+  } else {
+    changeBackgroundSmoothly('');
+  }
+
+  const browserThemeColors = { dark: '#111827', day: '#e9d0a7', diamond: '#000000', mektxt: '#170612', 'mektxt-day': '#e9e2d4' };
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', browserThemeColors[validTheme]);
+
+  if (persist) localStorage.setItem('theme', validTheme);
+  updateThemeControl();
+  if (Object.keys(bibleData).length) loadBooks();
+}
 
 themeToggle.addEventListener('click', () => {
-  const body = document.body;
-  console.log('current_theme', currentTheme)
-  if (currentTheme === 'dark') {
-    body.classList.remove('day-mode', 'nature-mode', 'gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
-    body.classList.add('day-mode');
-    currentTheme = 'day';
-    themeToggle.textContent = '💎';
-    changeBackgroundSmoothly('');
-  } else if (currentTheme === 'day') {
-    body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode');
-    body.classList.add('nature-mode', 'diamond-mode');
-    currentTheme = 'diamond';
-    themeToggle.textContent = '🌙';
-    changeBackgroundSmoothly('diamante branco.jpg');
-    loadBooks();
-  } else {;
-    body.classList.remove('day-mode', 'nature-mode','gold-mode', 'blue-mode', 'red-mode', 'purple-mode', 'pink-mode', 'diamond-mode');
-    currentTheme = 'dark';
-    themeToggle.textContent = '☀️';
-    changeBackgroundSmoothly('');
-    loadBooks()
-  }
+  const currentIndex = themeOrder.indexOf(currentTheme);
+  const nextIndex = (currentIndex + 1) % themeOrder.length;
+  applyTheme(themeOrder[nextIndex]);
 });
 
 function applyInitialTheme() {
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'day') {
-    document.body.classList.add('day-mode');
-  } // O modo noturno é o padrão, então não precisa de 'else'
+  applyTheme(localStorage.getItem('theme') || 'dark', false);
 }
 
 // --- Lógica para buscar e exibir versículos ---
@@ -2909,13 +3022,13 @@ function toggleMusic() {
 
 function updateFontSize(newSize) {
   // Impõe limites mínimo e máximo para o tamanho da fonte
-  const minSize = 8;
+  const minSize = 11;
   const maxSize = 40;
   const clampedSize = Math.max(minSize, Math.min(newSize, maxSize));
   
   // Calcula o espaçamento entre linhas (line-height) com base no tamanho da fonte.
-  // Um fator de 1.6 é geralmente bom para legibilidade.
-  const lineHeight = clampedSize * 1.6;
+  // Um pouco mais de ar acompanha o ritmo de página manuscrita.
+  const lineHeight = clampedSize * 1.72;
 
   currentFontSize = clampedSize;
   document.documentElement.style.setProperty('--reader-font-size', `${currentFontSize}px`);
@@ -2927,7 +3040,7 @@ function updateFontSize(newSize) {
 
 function applyInitialFontSize() {
     const savedSize = localStorage.getItem('fontSize');
-    const initialSize = savedSize ? parseInt(savedSize, 10) : 14;
+    const initialSize = savedSize ? parseInt(savedSize, 10) : 17;
     // Chama a função que agora também define o line-height
     updateFontSize(initialSize);
 }
@@ -2944,11 +3057,10 @@ function toggleFont() {
 
 function applyFontPreference() {
   const contentEl = document.getElementById('content');
-  if (isSerifFont) {
-    contentEl.style.fontFamily = "'Untitled Serif', serif";
-  } else {
-    contentEl.style.fontFamily = ''; // Reverte para o padrão do CSS (herdado de .prose)
-  }
+  const button = document.getElementById('btnToggleFont');
+  contentEl.style.fontFamily = isSerifFont ? 'Georgia, "Times New Roman", serif' : '';
+  button.classList.toggle('is-active', isSerifFont);
+  button.setAttribute('aria-pressed', String(isSerifFont));
 }
 
 document.getElementById('btnToggleFont').addEventListener('click', toggleFont);
@@ -2994,7 +3106,8 @@ function pauseSpeedReader() {
 }
 
 function openSpeedReader() {
-  const text = document.getElementById('content').innerText;
+  const contentElement = document.getElementById('content');
+  const text = contentElement.innerText;
   if (!text.trim()) {
     alert("Não há texto para ler.");
     return;
@@ -3003,6 +3116,7 @@ function openSpeedReader() {
   srCurrentWordIndex = 0;
   srWpm = 250;
   srWpmDisplay.textContent = srWpm;
+  srWordDisplay.style.fontFamily = getComputedStyle(contentElement).fontFamily;
 
   srOverlay.classList.remove('hidden');
   srModal.classList.remove('hidden');
@@ -3033,6 +3147,34 @@ document.getElementById('sr-speed-up').addEventListener('click', () => changeSpe
 document.getElementById('sr-speed-down').addEventListener('click', () => changeSpeed(-25));
 
 // --- Lógica da Meta de Leitura Anual ---
+const readingGoalOverlay = document.getElementById('reading-goal-overlay');
+const readingGoalModal = document.getElementById('reading-goal-modal');
+const readingGoalCloseButton = document.getElementById('reading-goal-close');
+let readingGoalPreviousFocus = null;
+
+function closeReadingGoalModal() {
+  if (readingGoalModal.classList.contains('hidden')) return;
+
+  readingGoalOverlay.classList.add('hidden');
+  readingGoalModal.classList.add('hidden');
+
+  const previousFocus = readingGoalPreviousFocus;
+  readingGoalPreviousFocus = null;
+  if (previousFocus instanceof HTMLElement) previousFocus.focus({ preventScroll: true });
+}
+
+function handleReadingGoalKeydown(event) {
+  if (readingGoalModal.classList.contains('hidden')) return;
+  if (event.key !== 'Enter' && event.key !== 'Escape') return;
+
+  event.preventDefault();
+  closeReadingGoalModal();
+}
+
+readingGoalCloseButton.addEventListener('click', closeReadingGoalModal);
+readingGoalOverlay.addEventListener('click', closeReadingGoalModal);
+document.addEventListener('keydown', handleReadingGoalKeydown);
+
 function showReadingGoalModal() {
   const overlay = document.getElementById('reading-goal-overlay');
   const modal = document.getElementById('reading-goal-modal');
@@ -3090,14 +3232,10 @@ function showReadingGoalModal() {
   document.getElementById('reading-goal-title').textContent = labels.readingGoalTitle;
   closeButton.textContent = labels.readingGoalClose;
   textElement.innerHTML = labels.readingGoalText(dayOfYear, targetBookTitle, targetChapter);
+  readingGoalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   overlay.classList.remove('hidden');
   modal.classList.remove('hidden');
-
-  // 5. Fechar o modal
-  closeButton.onclick = () => {
-    overlay.classList.add('hidden');
-    modal.classList.add('hidden');
-  };
+  requestAnimationFrame(() => closeButton.focus({ preventScroll: true }));
 }
 
 async function main(dataConfig) {
@@ -3147,6 +3285,7 @@ tag.src = "https://www.youtube.com/iframe_api";
 const firstScriptTag = document.getElementsByTagName('script')[0];
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
+applyInitialTheme();
 initializeDataModeSelection();
 </script>
 

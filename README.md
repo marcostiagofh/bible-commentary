@@ -1,11 +1,39 @@
-# Navegador de Comentário Bíblico
+# Navegador local da Bíblia e comentários
 
-Este é um servidor web local e uma interface de usuário para navegar e ouvir arquivos de texto de um comentário bíblico, organizados em uma estrutura de pastas (Livro > Capítulo > Arquivo).
+Aplicação web local para navegar, pesquisar e ouvir o texto bíblico e seus comentários.
 
-## Funcionalidades
+## Instalação
 
--   Listar livros, capítulos e arquivos.
--   Interface web simples para navegação.
--   Leitura de texto em voz alta usando a API de Síntese de Voz do navegador.
+Na primeira execução:
 
-[Link demonstração](https://marcostiagofh.github.io/bible-commentary/public/)
+```bash
+npm install
+```
+
+## Executar
+
+```bash
+npm start
+```
+
+Depois, acesse:
+
+```text
+http://127.0.0.1:3000
+```
+
+O comando equivalente, sem o atalho do npm, é:
+
+```bash
+node local_bible_browser_server.js
+```
+
+Se a porta 3000 estiver ocupada:
+
+```bash
+PORT=3001 npm start
+```
+
+O servidor Express entrega os arquivos da pasta `public/` e mantém disponíveis as rotas locais em `/api`.
+
+[Demonstração](https://marcostiagofh.github.io/bible-commentary/public/)
