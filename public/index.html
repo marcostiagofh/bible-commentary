@@ -1349,14 +1349,33 @@ function decorateReaderInitial() {
   if (!match) return;
 
   const index = match.index;
+  const prefixText = node.nodeValue.slice(0, index);
   const fragment = document.createDocumentFragment();
-  fragment.append(document.createTextNode(node.nodeValue.slice(0, index)));
+  const initialGroup = document.createElement('span');
+  initialGroup.className = 'manuscript-initial-group';
+
+  if (/\S/.test(prefixText)) {
+    const prefix = document.createElement('span');
+    prefix.className = 'manuscript-initial-prefix';
+    prefix.textContent = prefixText;
+    initialGroup.append(prefix);
+  } else {
+    fragment.append(document.createTextNode(prefixText));
+  }
 
   const initial = document.createElement('span');
   initial.className = 'manuscript-dropcap';
   initial.textContent = match[0];
-  fragment.append(initial, document.createTextNode(node.nodeValue.slice(index + match[0].length)));
+  initialGroup.append(initial);
+  fragment.append(initialGroup, document.createTextNode(node.nodeValue.slice(index + match[0].length)));
   node.replaceWith(fragment);
+}
+
+function getReaderText(contentElement) {
+  const renderedText = document.body.classList.contains('mektxt-mode')
+    ? contentElement.textContent
+    : contentElement.innerText;
+  return renderedText || '';
 }
 
 function renderCurrentFileContent() {
@@ -2493,7 +2512,7 @@ function handlePlayPause() {
   }
 
   // Caso não esteja falando (nem pausado) -> iniciar nova leitura
-  originalTextForSpeech = contentEl.innerText || '';
+  originalTextForSpeech = getReaderText(contentEl);
   if (!originalTextForSpeech.trim()) return;
 
   // reset
@@ -3107,7 +3126,7 @@ function pauseSpeedReader() {
 
 function openSpeedReader() {
   const contentElement = document.getElementById('content');
-  const text = contentElement.innerText;
+  const text = getReaderText(contentElement);
   if (!text.trim()) {
     alert("Não há texto para ler.");
     return;

@@ -768,9 +768,21 @@ body.mektxt-mode .reader-content-heading {
   text-transform: uppercase;
 }
 
-body.mektxt-mode .manuscript-dropcap {
+body.mektxt-mode .manuscript-initial-group {
   float: left;
+  display: inline-flex;
+  align-items: flex-start;
   margin: 5px 8px 0 0;
+}
+
+body.mektxt-mode .manuscript-initial-prefix {
+  line-height: 1.25;
+  white-space: pre-wrap;
+}
+
+body.mektxt-mode .manuscript-dropcap {
+  flex: 0 0 auto;
+  margin: 0;
   color: var(--manuscript-rubric);
   font-family: "Parched Letter";
   font-size: 3.9em;
